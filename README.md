@@ -1,9 +1,12 @@
-# Guía de instalación y despliegue en el VPS
+# HELITEB — Agente Comercial IA
 
-> Nota: aunque este archivo vive dentro de `heliteb-panel/`, describe el despliegue
-> de **todo el sistema** (Postgres, Ollama, la API .NET, este panel, y Caddy). Todos
-> los comandos de esta guía se ejecutan desde la **raíz del repositorio** (un nivel
-> arriba de esta carpeta), no desde dentro de `heliteb-panel/`.
+Backend .NET 8 (agente de IA, WhatsApp vía InboxCRM/Kommo, cotizaciones, catálogo con
+búsqueda semántica) + panel web en Astro/React para los asesores. Esta guía cubre la
+instalación y el despliegue de **todo el sistema** (Postgres, Ollama, la API .NET, el
+panel, y Caddy) en un VPS — todos los comandos se ejecutan desde esta misma carpeta
+(la raíz del repositorio).
+
+## Guía de instalación y despliegue en el VPS
 
 Esta guía asume un VPS Ubuntu 22.04 o 24.04 **nuevo**, sin nada instalado, y va paso
 a paso — cada paso trae el comando exacto para copiar y pegar, y cómo confirmar que
@@ -100,20 +103,24 @@ Ambos comandos deben mostrar un número de versión, no un error.
 
 ## 4. Descargar el proyecto
 
-Descarga el .zip del repositorio de GitHub (José Armando te da el link) y súbelo al
-VPS, o descárgalo directo desde el servidor:
+Instala git (si el VPS no lo trae de fábrica) y descarga el código:
 
 ```bash
+sudo apt install -y git
 cd ~
-curl -L -o heliteb.zip "URL_DEL_ZIP_QUE_TE_DIERON"
-sudo apt install -y unzip
-unzip heliteb.zip
-cd PruebaTecnicaHeliteb*    # el nombre exacto de la carpeta puede variar
+git clone https://github.com/Armandoj1/BotHeliteb.git
+cd BotHeliteb
 ```
+
+> Si el comando `git clone` pide usuario y contraseña, es porque el repositorio es
+> privado — pídele a José Armando que te agregue como colaborador en GitHub
+> (Settings → Collaborators del repo), o que te pase un token de acceso para usar en
+> vez de la contraseña.
 
 **Verificación:** `ls` debe mostrar, entre otras cosas, `docker-compose.yml`,
 `backend-dotnet/`, `heliteb-panel/`, `sql/`. Todos los pasos siguientes se corren
-parados en esta carpeta (la raíz del repo).
+parados en esta carpeta (`~/BotHeliteb`, la raíz del repo) — si en algún momento no
+estás seguro de dónde estás parado, corre `pwd` para confirmarlo.
 
 ---
 
@@ -267,10 +274,12 @@ docker compose logs -f
 
 **Actualizar a una versión nueva del código:**
 ```bash
-cd ~/PruebaTecnicaHeliteb*
-git pull                      # si se clonó con git, o reemplaza el .zip descargado
+cd ~/BotHeliteb
+git pull
 docker compose up -d --build
 ```
+(`git pull` no toca tu archivo `.env` — ese archivo nunca está en el repositorio, así
+que tus secretos quedan intactos al actualizar.)
 
 **Backup de la base de datos:**
 ```bash
