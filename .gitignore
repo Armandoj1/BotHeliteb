@@ -1,0 +1,40 @@
+# Node / Angular
+node_modules/
+dist/
+.angular/
+npm-debug.log*
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# .NET
+bin/
+obj/
+*.user
+
+# Editor / local tooling (not part of the project)
+.claude/
+.vscode/
+*.swp
+pgadmin_servers.json
+
+# Office lock files
+~$*.xlsx
+~$*.docx
+
+# Generated quotations (now stored in Cloudinary + Postgres, not in repo)
+cotizaciones/*.html
+cotizaciones/*.pdf
+cotizaciones/*.json
+
+# Logs
+*.log
+
+last_sync.json
+smtp_config.json
+
+# Secrets locales (docker-compose los lee de aqui, no van al repo)
+.env

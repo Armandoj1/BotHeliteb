@@ -1,0 +1,6 @@
+@Heliteb.Api_HostAddress = http://localhost:5090
+
+GET {{Heliteb.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

@@ -1,0 +1,116 @@
+services:
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: heliteb_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       heliteb
+      POSTGRES_USER:     heliteb_user
+      POSTGRES_PASSWORD: Heliteb2026!
+    ports:
+      - "5433:5432"
+    volumes:
+      - heliteb_pgdata:/var/lib/postgresql/data
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U heliteb_user -d heliteb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: heliteb_ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - heliteb_ollama:/root/.ollama
+
+  heliteb-api:
+    build:
+      context: ./backend-dotnet
+      dockerfile: Heliteb.Api/Dockerfile
+    container_name: heliteb_api
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=heliteb;Username=heliteb_user;Password=Heliteb2026!"
+      Ollama__BaseUrl: "http://ollama:11434"
+      DeepSeek__ApiKey: "${DEEPSEEK_API_KEY}"
+      Groq__ApiKey: "${GROQ_API_KEY}"
+      InboxCrm__ApiKey: "${INBOXCRM_API_KEY}"
+      Kommo__ChannelSecret: "${KOMMO_CHANNEL_SECRET}"
+      Webhook__KommoSharedSecret: "${KOMMO_WEBHOOK_SHARED_SECRET}"
+      Webhook__N8nSyncSecret: "${N8N_SYNC_SECRET}"
+      Jwt__SigningKey: "${JWT_SIGNING_KEY}"
+    ports:
+      - "5090:8080"
+    volumes:
+      # Solo lectura - para que el monitoreo de recursos (RAM/disco) vea el disco real
+      # del servidor y no solo la capa del contenedor. Si esta ruta no existe (ej.
+      # Windows en desarrollo local), el codigo cae a leer "/" del propio contenedor.
+      - /:/hostfs:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  heliteb-panel:
+    build:
+      context: ./heliteb-panel
+    container_name: heliteb_panel
+    restart: unless-stopped
+    environment:
+      # Direccion interna de docker (no publica) - el navegador nunca la ve, el panel
+      # la usa server-side para hablar con el API .NET dentro de la misma red.
+      API_URL: "http://heliteb-api:8080"
+      JWT_SIGNING_KEY: "${JWT_SIGNING_KEY}"
+      N8N_BASE_URL: "https://n8n.heliteb.co"
+    ports:
+      - "4321:4321"
+    depends_on:
+      - heliteb-api
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: heliteb_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL:    admin@heliteb.co
+      PGADMIN_DEFAULT_PASSWORD: Heliteb2026!
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - heliteb_pgadmin:/var/lib/pgadmin
+      - ./pgadmin_servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: heliteb_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      PANEL_DOMAIN: "${PANEL_DOMAIN:-localhost}"
+      API_DOMAIN: "${API_DOMAIN:-api.localhost}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - heliteb_caddy_data:/data
+      - heliteb_caddy_config:/config
+    depends_on:
+      - heliteb-panel
+      - heliteb-api
+
+volumes:
+  heliteb_pgdata:
+  heliteb_pgadmin:
+  heliteb_ollama:
+  heliteb_caddy_data:
+  heliteb_caddy_config:

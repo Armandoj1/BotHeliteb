@@ -1,0 +1,8 @@
+---
+import DashboardLayout from '../layouts/DashboardLayout.astro';
+import NotasManager from '../islands/NotasManager.tsx';
+---
+
+<DashboardLayout title="Notas del agente — HELITEB Panel">
+  <NotasManager client:load />
+</DashboardLayout>

@@ -1,0 +1,11 @@
+---
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import ConversacionDetalle from '../../islands/ConversacionDetalle.tsx';
+
+const { telefono } = Astro.params;
+if (!telefono) return Astro.redirect('/conversaciones');
+---
+
+<DashboardLayout title={`+${telefono} — HELITEB Panel`}>
+  <ConversacionDetalle telefono={telefono} client:load />
+</DashboardLayout>

@@ -1,0 +1,55 @@
+---
+import {
+  MessageCircle, History, LayoutGrid, FileText, Users, StickyNote, RefreshCw, Settings, PanelLeftClose, Activity,
+} from 'lucide-react';
+
+const currentPath = Astro.url.pathname;
+const { asesor } = Astro.locals;
+
+const links = [
+  { href: '/', label: 'Chat', icon: MessageCircle },
+  { href: '/conversaciones', label: 'Conversaciones', icon: History },
+  { href: '/catalogo', label: 'Catálogo', icon: LayoutGrid },
+  { href: '/cotizaciones', label: 'Cotizaciones', icon: FileText },
+  { href: '/asesores', label: 'Asesores', icon: Users },
+  { href: '/notas', label: 'Notas del agente', icon: StickyNote },
+  { href: '/upload', label: 'Sincronización', icon: RefreshCw },
+  { href: '/configuracion', label: 'Configuración', icon: Settings },
+  { href: '/recursos', label: 'Recursos', icon: Activity },
+];
+---
+
+<nav class="sidebar">
+  <div class="sidebar-brand">
+    <div class="sidebar-brand-mark">H</div>
+    <span class="sidebar-brand-text">HELITEB Panel</span>
+    <button id="sidebar-hide" class="sidebar-hide-btn" title="Ocultar menú" aria-label="Ocultar menú">
+      <PanelLeftClose size={15} />
+    </button>
+  </div>
+
+  <div class="sidebar-nav">
+    {
+      links.map((link) => {
+        const Icon = link.icon;
+        const active = currentPath === link.href;
+        return (
+          <a href={link.href} class={`sidebar-link ${active ? 'active' : ''}`}>
+            <Icon size={16} />
+            {link.label}
+          </a>
+        );
+      })
+    }
+  </div>
+
+  <div class="sidebar-footer">
+    <a href="/perfil" class="sidebar-profile">
+      <div class="sidebar-profile-avatar">{asesor?.nombre?.charAt(0)}</div>
+      <div>
+        <div class="sidebar-profile-name">{asesor?.nombre}</div>
+        <div class="sidebar-profile-sub">Ver perfil</div>
+      </div>
+    </a>
+  </div>
+</nav>

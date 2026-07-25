@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="Heliteb.Agent/Heliteb.Agent.csproj" />
+  <Project Path="Heliteb.Api/Heliteb.Api.csproj" />
+  <Project Path="Heliteb.Application/Heliteb.Application.csproj" />
+  <Project Path="Heliteb.Domain/Heliteb.Domain.csproj" />
+  <Project Path="Heliteb.Infrastructure/Heliteb.Infrastructure.csproj" />
+</Solution>

@@ -1,0 +1,8 @@
+---
+import DashboardLayout from '../layouts/DashboardLayout.astro';
+import CotizacionesList from '../islands/CotizacionesList.tsx';
+---
+
+<DashboardLayout title="Cotizaciones — HELITEB Panel">
+  <CotizacionesList client:load />
+</DashboardLayout>

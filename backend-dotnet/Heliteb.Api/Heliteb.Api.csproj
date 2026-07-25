@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>9f706342-4641-468e-9ed9-f156251b5b4a</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Dapper" Version="2.1.79" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.11" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.9" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Heliteb.Application\Heliteb.Application.csproj" />
+    <ProjectReference Include="..\Heliteb.Infrastructure\Heliteb.Infrastructure.csproj" />
+    <ProjectReference Include="..\Heliteb.Agent\Heliteb.Agent.csproj" />
+  </ItemGroup>
+
+</Project>
