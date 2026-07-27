@@ -19,6 +19,17 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddAgent();
 
+// Logging minimo de cada request (metodo, path, status, duracion) sin headers ni
+// body - suficiente para diagnosticar en produccion sin depender de "docker compose
+// logs" a ciegas, sin arriesgar loguear el JWT del panel o datos de clientes.
+builder.Services.AddHttpLogging(o =>
+{
+    o.LoggingFields = Microsoft.AspNetCore.HttpLogging.HttpLoggingFields.RequestMethod
+        | Microsoft.AspNetCore.HttpLogging.HttpLoggingFields.RequestPath
+        | Microsoft.AspNetCore.HttpLogging.HttpLoggingFields.ResponseStatusCode
+        | Microsoft.AspNetCore.HttpLogging.HttpLoggingFields.Duration;
+});
+
 // Login del panel: el asesor verifica su OTP (ver AuthController) y recibe un JWT.
 // El propio API .NET nunca setea la cookie de sesion - eso lo hace el servidor de
 // Astro (patron BFF), asi que aqui solo hace falta poder VALIDAR el token entrante.
@@ -60,6 +71,12 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Primero de todo el pipeline: asi envuelve tambien Swagger/CORS/auth/routing y
+// cualquier excepcion que se escape de un controller queda logueada y responde un
+// JSON limpio en vez de un 500 vacio (ver ExceptionHandlingMiddleware).
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.UseHttpLogging();
 
 if (app.Environment.IsDevelopment())
 {
