@@ -13,7 +13,8 @@ cd "$REPO_DIR"
 mkdir -p "$BACKUPS_DIR"
 
 echo "==> Guardando el commit actual por si hay que hacer rollback"
-git rev-parse HEAD > "$BACKUPS_DIR/last-good.txt"
+prev_sha="$(git rev-parse HEAD)"
+echo "$prev_sha" > "$BACKUPS_DIR/last-good.txt"
 
 echo "==> Respaldando Postgres antes de reconstruir"
 timestamp="$(date +%Y%m%d-%H%M%S)"
@@ -23,8 +24,35 @@ find "$BACKUPS_DIR" -name '*.sql.gz' -mtime +14 -delete
 echo "==> Actualizando código"
 git pull
 
-echo "==> Reconstruyendo y levantando contenedores"
-docker compose up -d --build --remove-orphans
+# Reconstruye solo lo que cambió, en vez de recrear siempre los dos
+# contenedores de aplicación - un cambio en el panel no debería reiniciar el
+# API (y viceversa). docker-compose.yml cuenta como "cambió todo": puede
+# afectar cualquier servicio (env vars, puertos, etc.), así que ante la duda
+# reconstruye ambos. Sin diff disponible (primera corrida, o el pull no trajo
+# nada nuevo por una re-corrida manual), también reconstruye ambos por
+# seguridad - nunca se queda a medias.
+changed="$(git diff --name-only "$prev_sha" HEAD 2>/dev/null || true)"
+build_api=false
+build_panel=false
+if [ -z "$changed" ]; then
+  build_api=true
+  build_panel=true
+else
+  echo "$changed" | grep -qE '^(backend-dotnet/|docker-compose\.yml$)' && build_api=true
+  echo "$changed" | grep -qE '^(Front/|docker-compose\.yml$)' && build_panel=true
+fi
+
+services=""
+[ "$build_api" = true ] && services="$services heliteb-api"
+[ "$build_panel" = true ] && services="$services heliteb-panel"
+
+if [ -z "$services" ]; then
+  echo "==> Nada que reconstruir (ningún cambio afecta a la API o al panel)"
+else
+  echo "==> Reconstruyendo:$services"
+  # shellcheck disable=SC2086
+  docker compose up -d --build --remove-orphans $services
+fi
 
 # .env define PANEL_DOMAIN/API_DOMAIN reales; se usan solo para las verificaciones.
 set -a

@@ -5,6 +5,15 @@ on:
     branches: [main]
   workflow_dispatch: {}
 
+# Sin esto, dos despliegues que se solapan (un push seguido rápido de otro, o
+# uno automático chocando con uno corrido a mano en el servidor) pueden pelear
+# por recrear el mismo contenedor a la vez y Docker se confunde con el nombre
+# temporal que usa durante el recreate - ya pasó una vez. En cola, nunca en
+# paralelo ni cancelando uno a medias (podría cortar el respaldo de Postgres).
+concurrency:
+  group: deploy-produccion
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
