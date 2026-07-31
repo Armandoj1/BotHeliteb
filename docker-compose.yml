@@ -100,27 +100,15 @@ services:
       postgres:
         condition: service_healthy
 
-  caddy:
-    image: caddy:2-alpine
-    container_name: heliteb_caddy
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      PANEL_DOMAIN: "${PANEL_DOMAIN:-localhost}"
-      API_DOMAIN: "${API_DOMAIN:-api.localhost}"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - heliteb_caddy_data:/data
-      - heliteb_caddy_config:/config
-    depends_on:
-      - heliteb-panel
-      - heliteb-api
+# No trae Caddy propio: el host de producción ya corre un reverse proxy
+# compartido para varios proyectos (ver Caddyfile en este repo, pensado para
+# fusionarse con el Caddyfile que ya exista - agrega bloques para PANEL_DOMAIN
+# y API_DOMAIN apuntando a host.docker.internal:4321 / :8080, los puertos que
+# heliteb-panel/heliteb-api ya publican en el host). En un servidor limpio sin
+# proxy propio, ese mismo Caddyfile se puede correr suelto con
+# `docker run -p 80:80 -p 443:443 -v ./Caddyfile:/etc/caddy/Caddyfile caddy:2-alpine`.
 
 volumes:
   heliteb_pgdata:
   heliteb_pgadmin:
   heliteb_ollama:
-  heliteb_caddy_data:
-  heliteb_caddy_config:

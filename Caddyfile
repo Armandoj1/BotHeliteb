@@ -1,10 +1,25 @@
+# Bloques de reverse proxy para el panel y el API de Heliteb. docker-compose.yml
+# no trae su propio Caddy (ver comentario ahí) - este archivo es una referencia
+# para fusionar en el Caddy que ya administre el host de turno. Dos casos:
+#
+# A) Caddy dedicado a Heliteb, en la MISMA red Docker que heliteb-panel/
+#    heliteb-api (por ejemplo si los agregas de vuelta a este compose): usa
+#    los nombres de servicio directamente.
+#      reverse_proxy heliteb-panel:4321
+#      reverse_proxy heliteb-api:8080
+#
+# B) Fusionado en un Caddy YA EXISTENTE en el host, de otro proyecto/otra red
+#    Docker (el caso real en producción) - ese servicio de Caddy necesita
+#    `extra_hosts: ["host.docker.internal:host-gateway"]`, y apunta a los
+#    puertos que heliteb-panel/heliteb-api publican en el host:
+
 {$PANEL_DOMAIN} {
-	reverse_proxy heliteb-panel:4321
+	reverse_proxy host.docker.internal:4321
 }
 
 {$API_DOMAIN} {
 	# Lo usan tanto el navegador del panel (build estatico, PUBLIC_API_URL
 	# apunta aqui) como servicios externos (InboxCRM, Kommo, n8n) para los
 	# webhooks.
-	reverse_proxy heliteb-api:8080
+	reverse_proxy host.docker.internal:8080
 }
