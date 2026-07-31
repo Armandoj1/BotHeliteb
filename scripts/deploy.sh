@@ -31,17 +31,34 @@ set -a
 source .env
 set +a
 
+# "docker compose up -d" vuelve en cuanto el contenedor arranca, no cuando la
+# app adentro ya está escuchando (el API .NET tarda unos segundos en levantar)
+# - sin reintentos, esto revienta con un 502 fantasma aunque el despliegue haya
+# salido bien. Da hasta ~30s de margen antes de declarar fallo real.
+wait_for() {
+  local url="$1" expected="$2" label="$3" status="000"
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    status="$(curl -s -o /dev/null -w '%{http_code}' "$url" || echo "000")"
+    [ "$status" = "$expected" ] && { echo "$status"; return 0; }
+    sleep 3
+  done
+  echo "ERROR: $label respondió $status (se esperaba $expected) tras varios reintentos" >&2
+  echo "$status"
+  return 1
+}
+
 echo "==> Verificando API (401 sin token = está arriba y exigiendo auth, por diseño)"
-api_status="$(curl -s -o /dev/null -w '%{http_code}' "https://${API_DOMAIN}/api/health" || echo "000")"
-if [ "$api_status" != "401" ]; then
-  echo "ERROR: https://${API_DOMAIN}/api/health respondió $api_status (se esperaba 401)"
-  exit 1
-fi
+api_status="$(wait_for "https://${API_DOMAIN}/api/health" "401" "https://${API_DOMAIN}/api/health")" || exit 1
 
 echo "==> Verificando panel"
-panel_status="$(curl -s -o /dev/null -w '%{http_code}' "https://${PANEL_DOMAIN}/login" || echo "000")"
+panel_status="000"
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  panel_status="$(curl -s -o /dev/null -w '%{http_code}' "https://${PANEL_DOMAIN}/login" || echo "000")"
+  { [ "$panel_status" = "200" ] || [ "$panel_status" = "301" ]; } && break
+  sleep 3
+done
 if [ "$panel_status" != "200" ] && [ "$panel_status" != "301" ]; then
-  echo "ERROR: https://${PANEL_DOMAIN}/login respondió $panel_status (se esperaba 200 o 301)"
+  echo "ERROR: https://${PANEL_DOMAIN}/login respondió $panel_status (se esperaba 200 o 301) tras varios reintentos"
   exit 1
 fi
 
