@@ -3,8 +3,8 @@
 }
 
 {$API_DOMAIN} {
-	# Solo necesario para que servicios externos (InboxCRM, Kommo, n8n) lleguen
-	# a los webhooks - el panel habla con la API por la red interna de Docker,
-	# no por este dominio.
+	# Lo usan tanto el navegador del panel (build estatico, PUBLIC_API_URL
+	# apunta aqui) como servicios externos (InboxCRM, Kommo, n8n) para los
+	# webhooks.
 	reverse_proxy heliteb-api:8080
 }
