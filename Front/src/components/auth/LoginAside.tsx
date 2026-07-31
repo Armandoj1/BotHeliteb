@@ -1,24 +1,24 @@
 import { motion } from 'framer-motion';
-import { BrainCircuit, Layers, ShieldCheck } from 'lucide-react';
+import { Package, ReceiptText, Search } from 'lucide-react';
 
 import { APP_NAME } from '@/constants/app';
 import { staggerContainer, staggerItem } from '@/lib/motion';
 
 const HIGHLIGHTS = [
   {
-    icon: BrainCircuit,
-    title: 'El mismo asistente de WhatsApp',
-    description: 'Pruébalo desde aquí antes de responderle a un cliente: mismo catálogo, mismos precios.',
+    icon: Search,
+    title: 'Encuentra el producto correcto',
+    description: 'Busca por modelo, marca o característica y ten precio y disponibilidad a la mano.',
   },
   {
-    icon: Layers,
-    title: 'Tus conversaciones de WhatsApp',
-    description: 'Revisa el hilo completo de cada cliente sin salir del panel.',
+    icon: ReceiptText,
+    title: 'Cotiza en minutos',
+    description: 'Arma una propuesta para tu cliente sin salir del panel.',
   },
   {
-    icon: ShieldCheck,
-    title: 'Notas del agente',
-    description: 'Ajusta cómo responde el asistente cuando algo no está saliendo bien.',
+    icon: Package,
+    title: 'El mismo asistente que responde por WhatsApp',
+    description: 'Pregúntale lo que le preguntaría un cliente, antes de responder tú.',
   },
 ] as const;
 

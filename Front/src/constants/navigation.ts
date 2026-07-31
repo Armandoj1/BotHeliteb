@@ -42,8 +42,7 @@ export const NAV_ITEMS: readonly INavItem[] = [
     label: 'Conversaciones',
     href: ROUTES.CONVERSATIONS,
     icon: SlidersHorizontal,
-    description: 'Bandeja unificada de canales',
-    badge: '12',
+    description: 'Conversaciones de WhatsApp con tus clientes',
     group: 'workspace',
   },
   {
@@ -75,7 +74,7 @@ export const NAV_ITEMS: readonly INavItem[] = [
     label: 'Asesores',
     href: ROUTES.ADVISORS,
     icon: UsersRound,
-    description: 'Equipo y carga de trabajo',
+    description: 'Quién tiene acceso al panel',
     group: 'commercial',
   },
   {
