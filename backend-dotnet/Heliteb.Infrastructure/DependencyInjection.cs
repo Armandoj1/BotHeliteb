@@ -21,6 +21,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Heliteb.Infrastructure;
 
@@ -45,6 +46,7 @@ public static class DependencyInjection
         services.AddScoped<IRecursosMuestraRepository, RecursosMuestraRepository>();
         services.AddSingleton<ISystemResourcesService, LinuxProcSystemResourcesService>();
         services.AddHostedService<RecursosSamplerBackgroundService>();
+        services.AddScoped<IEmbeddingUsoRepository, EmbeddingUsoRepository>();
 
         var inventarioExternoOptions = configuration.GetSection("InventarioExterno").Get<InventarioExternoOptions>()
             ?? throw new InvalidOperationException("Falta la sección InventarioExterno en la configuración.");
@@ -59,6 +61,7 @@ public static class DependencyInjection
             ?? throw new InvalidOperationException("Falta la sección Jwt en la configuración.");
         services.AddSingleton(jwtOptions);
         services.AddScoped<IJwtTokenService, JwtTokenService>();
+        services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
 
         services.AddSingleton<IPdfService, QuestPdfService>();
 
@@ -83,24 +86,59 @@ public static class DependencyInjection
             ?? throw new InvalidOperationException("Falta la sección Groq en la configuración.");
         services.AddHttpClient(nameof(GroqClient), http => http.Timeout = TimeSpan.FromSeconds(30));
 
+        // Registrados como tipos concretos (no solo detrás de ILlmClient), igual que
+        // OllamaEmbeddingClient/GeminiEmbeddingClient más abajo — así el comparador
+        // (ComparacionAgentFactory, LlmComparisonController) puede resolver los dos a
+        // la vez sin importar cuál esté "activo" en ILlmProviderSwitch.
+        services.AddScoped(sp => new DeepSeekClient(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(DeepSeekClient)), deepSeekOptions,
+            sp.GetRequiredService<IAppConfigStore>()));
+        services.AddScoped(sp => new GroqClient(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(GroqClient)), groqOptions,
+            sp.GetRequiredService<IAppConfigStore>()));
+
         services.AddSingleton<ILlmProviderSwitch, LlmProviderSwitch>();
-        services.AddScoped<ILlmClient>(sp =>
-        {
-            var factory = sp.GetRequiredService<IHttpClientFactory>();
-            var deepSeek = new DeepSeekClient(factory.CreateClient(nameof(DeepSeekClient)), deepSeekOptions);
-            var groq = new GroqClient(factory.CreateClient(nameof(GroqClient)), groqOptions);
-            return new LlmProviderRouter(sp.GetRequiredService<ILlmProviderSwitch>(), deepSeek, groq);
-        });
+        services.AddScoped<ILlmClient>(sp => new LlmProviderRouter(
+            sp.GetRequiredService<ILlmProviderSwitch>(),
+            sp.GetRequiredService<DeepSeekClient>(),
+            sp.GetRequiredService<GroqClient>()));
+
+        var embeddingsOptions = configuration.GetSection("Embeddings").Get<EmbeddingsOptions>() ?? new EmbeddingsOptions();
+        services.AddSingleton(embeddingsOptions);
+        // Singleton con estado mutable en memoria - se puede cambiar desde el panel
+        // (POST /api/embeddings/proveedor) sin reiniciar la API, igual que
+        // ILlmProviderSwitch para DeepSeek/Groq.
+        services.AddSingleton<IEmbeddingProviderSwitch, EmbeddingProviderSwitch>();
 
         var ollamaOptions = configuration.GetSection("Ollama").Get<OllamaOptions>() ?? new OllamaOptions();
         // 60s (no 30s) de margen: la primera consulta semantica tras un modelo recien
         // cargado en frio (sin GPU) puede tardar mas de 30s por si sola.
         services.AddHttpClient(nameof(OllamaEmbeddingClient), http => http.Timeout = TimeSpan.FromSeconds(60));
-        services.AddScoped<IEmbeddingClient>(sp =>
-        {
-            var http = sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(OllamaEmbeddingClient));
-            return new OllamaEmbeddingClient(http, ollamaOptions, sp.GetRequiredService<IMemoryCache>());
-        });
+
+        var geminiOptions = configuration.GetSection("Gemini").Get<GeminiOptions>() ?? new GeminiOptions();
+        services.AddHttpClient(nameof(GeminiEmbeddingClient), http => http.Timeout = TimeSpan.FromSeconds(30));
+
+        // Registrados como tipos concretos (no solo detras de IEmbeddingClient) para que
+        // EmbeddingsController pueda compararlos a los dos en la misma request (ver
+        // POST /api/embeddings/comparar), sin importar cual este "activo" en el switch.
+        services.AddScoped(sp => new OllamaEmbeddingClient(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(OllamaEmbeddingClient)), ollamaOptions,
+            sp.GetRequiredService<IMemoryCache>(), sp.GetRequiredService<IEmbeddingUsoRepository>(),
+            sp.GetRequiredService<ILogger<OllamaEmbeddingClient>>()));
+        services.AddScoped(sp => new GeminiEmbeddingClient(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(GeminiEmbeddingClient)), geminiOptions,
+            sp.GetRequiredService<IMemoryCache>(), sp.GetRequiredService<IEmbeddingUsoRepository>(),
+            sp.GetRequiredService<IAppConfigStore>(), sp.GetRequiredService<ILogger<GeminiEmbeddingClient>>()));
+
+        // Cual de los dos atiende cada llamada de busqueda en vivo lo decide
+        // EmbeddingProviderRouter en tiempo real segun IEmbeddingProviderSwitch -
+        // permite cambiar desde el panel sin reiniciar la API. Cada uno escribe su
+        // propia columna (ver EmbeddingsOptions), asi que cambiar de proveedor nunca
+        // pisa los embeddings ya generados del otro.
+        services.AddScoped<IEmbeddingClient>(sp => new EmbeddingProviderRouter(
+            sp.GetRequiredService<IEmbeddingProviderSwitch>(),
+            sp.GetRequiredService<OllamaEmbeddingClient>(),
+            sp.GetRequiredService<GeminiEmbeddingClient>()));
 
         var inboxCrmOptions = configuration.GetSection("InboxCrm").Get<InboxCrmOptions>()
             ?? throw new InvalidOperationException("Falta la sección InboxCrm en la configuración.");

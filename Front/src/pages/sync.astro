@@ -1,0 +1,8 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { SyncPanel } from '@/components/sync/SyncPanel';
+---
+
+<AdminLayout title="Sincronización" description="Orígenes de datos conectados y su estado">
+  <SyncPanel client:load />
+</AdminLayout>

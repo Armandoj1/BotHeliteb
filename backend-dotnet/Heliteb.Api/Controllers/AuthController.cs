@@ -10,6 +10,18 @@ public class VerificarCodigoRequest
     public string Codigo { get; set; } = null!;
 }
 
+public class LoginRequest
+{
+    public string Correo { get; set; } = null!;
+    public string Password { get; set; } = null!;
+}
+
+public class CambiarPasswordRequest
+{
+    public string PasswordActual { get; set; } = null!;
+    public string PasswordNueva { get; set; } = null!;
+}
+
 public class ActualizarPerfilRequest
 {
     public string Nombre { get; set; } = null!;
@@ -32,12 +44,78 @@ public class AuthController : ControllerBase
     private readonly IAsesorAuthService _auth;
     private readonly IAsesorRepository _asesores;
     private readonly IJwtTokenService _jwt;
+    private readonly IPasswordHasher _passwords;
 
-    public AuthController(IAsesorAuthService auth, IAsesorRepository asesores, IJwtTokenService jwt)
+    public AuthController(
+        IAsesorAuthService auth, IAsesorRepository asesores, IJwtTokenService jwt, IPasswordHasher passwords)
     {
         _auth = auth;
         _asesores = asesores;
         _jwt = jwt;
+        _passwords = passwords;
+    }
+
+    /// <summary>
+    /// Login del panel por correo + contraseña. Emite el MISMO JWT que la ruta OTP,
+    /// así que todo lo que ya validaba el token sigue funcionando sin cambios.
+    ///
+    /// Correo inexistente, asesor inactivo, sin contraseña definida y contraseña
+    /// incorrecta devuelven exactamente el mismo mensaje: distinguirlos permitiría
+    /// enumerar qué correos están registrados.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpPost("login")]
+    public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken ct)
+    {
+        const string CredencialesInvalidas = "Correo o contraseña incorrectos.";
+
+        if (string.IsNullOrWhiteSpace(request.Correo) || string.IsNullOrWhiteSpace(request.Password))
+        {
+            return BadRequest(new { ok = false, motivo = "Correo y contraseña son obligatorios." });
+        }
+
+        var asesor = await _asesores.GetByEmailAsync(request.Correo.Trim(), ct);
+
+        // Se verifica igual aunque el asesor no exista, para que el tiempo de
+        // respuesta no delate qué correos están registrados.
+        var passwordOk = _passwords.Verify(request.Password, asesor?.PasswordHash);
+
+        if (asesor is null || !asesor.Activo || !passwordOk)
+        {
+            return Unauthorized(new { ok = false, motivo = CredencialesInvalidas });
+        }
+
+        return Ok(new
+        {
+            ok = true,
+            token = _jwt.GenerarToken(asesor),
+            asesor = new { asesor.Id, asesor.Nombre, asesor.Email, asesor.Telefono },
+        });
+    }
+
+    /// <summary>Cambio de contraseña del propio asesor; exige la contraseña actual.</summary>
+    [HttpPost("cambiar-password")]
+    public async Task<IActionResult> CambiarPassword([FromBody] CambiarPasswordRequest request, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.PasswordNueva) || request.PasswordNueva.Length < 8)
+        {
+            return BadRequest(new { ok = false, motivo = "La contraseña nueva debe tener al menos 8 caracteres." });
+        }
+
+        var telefono = User.FindFirst("phone")?.Value ?? "";
+        var asesor = await _asesores.GetByTelefonoAsync(telefono, ct);
+        if (asesor is null)
+        {
+            return Unauthorized(new { ok = false, motivo = "Asesor no encontrado." });
+        }
+
+        if (!_passwords.Verify(request.PasswordActual, asesor.PasswordHash))
+        {
+            return Unauthorized(new { ok = false, motivo = "La contraseña actual no coincide." });
+        }
+
+        await _asesores.SetPasswordHashAsync(asesor.Id, _passwords.Hash(request.PasswordNueva), ct);
+        return Ok(new { ok = true });
     }
 
     [AllowAnonymous]

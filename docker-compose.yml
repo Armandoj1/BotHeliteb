@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_DB:       heliteb
       POSTGRES_USER:     heliteb_user
-      POSTGRES_PASSWORD: Heliteb2026!
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-Heliteb2026!}"
     ports:
       - "5433:5432"
     volumes:
@@ -36,8 +36,10 @@ services:
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=heliteb;Username=heliteb_user;Password=Heliteb2026!"
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=heliteb;Username=heliteb_user;Password=${POSTGRES_PASSWORD:-Heliteb2026!}"
       Ollama__BaseUrl: "http://ollama:11434"
+      Embeddings__Provider: "${EMBEDDINGS_PROVIDER:-ollama}"
+      Gemini__ApiKey: "${GEMINI_API_KEY}"
       DeepSeek__ApiKey: "${DEEPSEEK_API_KEY}"
       Groq__ApiKey: "${GROQ_API_KEY}"
       InboxCrm__ApiKey: "${INBOXCRM_API_KEY}"
@@ -45,6 +47,10 @@ services:
       Webhook__KommoSharedSecret: "${KOMMO_WEBHOOK_SHARED_SECRET}"
       Webhook__N8nSyncSecret: "${N8N_SYNC_SECRET}"
       Jwt__SigningKey: "${JWT_SIGNING_KEY}"
+      # Origen(es) del panel permitidos por CORS (separados por coma si hay más
+      # de uno). El valor por defecto coincide con el panel local vía Docker;
+      # en producción, .env define el dominio real (ver .env.example).
+      Cors__AllowedOrigins: "${CORS_ALLOWED_ORIGINS:-http://localhost:4321}"
     ports:
       - "5090:8080"
     volumes:
@@ -58,15 +64,19 @@ services:
 
   heliteb-panel:
     build:
-      context: ./heliteb-panel
+      # Panel Astro + React (ver Front/README.md), build estático servido por
+      # nginx - habla con el API .NET directo desde el navegador del usuario, no
+      # server-side, así que no necesita JWT_SIGNING_KEY ni ninguna variable de
+      # entorno en runtime (todo lo que necesita se incrusta en el JS al buildear).
+      context: ./Front
+      args:
+        # Debe ser una URL alcanzable por el NAVEGADOR del usuario (el puerto
+        # publicado en el host), nunca el nombre interno de red de Docker -
+        # Astro incrusta este valor en el JS del cliente durante el build, no
+        # lo lee en runtime dentro del contenedor.
+        PUBLIC_API_URL: "${PUBLIC_PANEL_API_URL:-http://localhost:5090}"
     container_name: heliteb_panel
     restart: unless-stopped
-    environment:
-      # Direccion interna de docker (no publica) - el navegador nunca la ve, el panel
-      # la usa server-side para hablar con el API .NET dentro de la misma red.
-      API_URL: "http://heliteb-api:8080"
-      JWT_SIGNING_KEY: "${JWT_SIGNING_KEY}"
-      N8N_BASE_URL: "https://n8n.heliteb.co"
     ports:
       - "4321:4321"
     depends_on:
@@ -78,7 +88,7 @@ services:
     restart: unless-stopped
     environment:
       PGADMIN_DEFAULT_EMAIL:    admin@heliteb.co
-      PGADMIN_DEFAULT_PASSWORD: Heliteb2026!
+      PGADMIN_DEFAULT_PASSWORD: "${PGADMIN_PASSWORD:-Heliteb2026!}"
       PGADMIN_CONFIG_SERVER_MODE: "False"
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
     ports:

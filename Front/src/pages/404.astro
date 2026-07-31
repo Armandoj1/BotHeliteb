@@ -1,0 +1,32 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { ROUTES } from '@/constants/routes';
+---
+
+<AdminLayout title="Página no encontrada" description="La ruta solicitada no existe">
+  {/* Static on purpose: a 404 should never wait for JavaScript. */}
+  <section class="flex flex-col items-center justify-center px-6 py-24 text-center">
+    <p
+      class="text-[64px] font-semibold leading-none tracking-[-0.04em] text-border-strong"
+      data-numeric
+    >
+      404
+    </p>
+
+    <h2 class="mt-6 text-[18px] font-semibold tracking-[-0.02em] text-foreground">
+      No encontramos esta página
+    </h2>
+
+    <p class="mt-2 max-w-md text-[13px] leading-relaxed text-muted">
+      Es posible que el enlace haya cambiado o que el módulo aún no esté disponible en tu plan.
+      Vuelve al panel general para continuar.
+    </p>
+
+    <a
+      href={ROUTES.DASHBOARD}
+      class="mt-7 inline-flex h-9 items-center rounded-md bg-primary px-3.5 text-[13px] font-medium text-primary-foreground shadow-xs transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+    >
+      Ir al panel general
+    </a>
+  </section>
+</AdminLayout>

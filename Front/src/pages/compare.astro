@@ -1,0 +1,11 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { ComparisonPanel } from '@/components/comparison/ComparisonPanel';
+---
+
+<AdminLayout
+  title="Comparador"
+  description="Envía un mensaje a dos modelos y compara latencia, consumo y costo"
+>
+  <ComparisonPanel client:load />
+</AdminLayout>

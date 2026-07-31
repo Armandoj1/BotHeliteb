@@ -1,0 +1,8 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { ResourcesPanel } from '@/components/resources/ResourcesPanel';
+---
+
+<AdminLayout title="Recursos" description="Base de conocimiento indexada para el asistente">
+  <ResourcesPanel client:load />
+</AdminLayout>

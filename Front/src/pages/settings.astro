@@ -1,0 +1,8 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { SettingsPanel } from '@/components/settings/SettingsPanel';
+---
+
+<AdminLayout title="Configuración" description="Preferencias del espacio de trabajo">
+  <SettingsPanel client:load />
+</AdminLayout>

@@ -1,0 +1,31 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import { AppHeader } from '@/components/layout/AppHeader';
+import { AppSidebar } from '@/components/layout/AppSidebar';
+import { ToastViewport } from '@/components/ui';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description } = Astro.props;
+const pathname = Astro.url.pathname;
+---
+
+<BaseLayout title={title} description={description}>
+  {/* Shell islands persist across client-side navigation: no remount, no flash. */}
+  <div class="min-h-dvh md:shell-grid">
+    <AppSidebar client:load transition:persist="app-sidebar" pathname={pathname} />
+
+    <div class="flex min-w-0 flex-col">
+      <AppHeader client:load transition:persist="app-header" pathname={pathname} />
+
+      <main id="main" class="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <slot />
+      </main>
+    </div>
+  </div>
+
+  <ToastViewport client:load transition:persist="toast-viewport" />
+</BaseLayout>

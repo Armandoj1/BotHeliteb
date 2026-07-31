@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Heliteb.Agent;
+using Heliteb.Api.Agent;
 using Heliteb.Api.Middlewares;
 using Heliteb.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -18,6 +19,10 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddAgent();
+// Arma un agente aislado pineado a un solo proveedor de embeddings, para
+// "Comparar IA" (ver ComparacionChatController) - no interfiere con el switch
+// compartido que usa el bot real de WhatsApp.
+builder.Services.AddScoped<ComparacionAgentFactory>();
 
 // Logging minimo de cada request (metodo, path, status, duracion) sin headers ni
 // body - suficiente para diagnosticar en produccion sin depender de "docker compose
@@ -30,9 +35,9 @@ builder.Services.AddHttpLogging(o =>
         | Microsoft.AspNetCore.HttpLogging.HttpLoggingFields.Duration;
 });
 
-// Login del panel: el asesor verifica su OTP (ver AuthController) y recibe un JWT.
-// El propio API .NET nunca setea la cookie de sesion - eso lo hace el servidor de
-// Astro (patron BFF), asi que aqui solo hace falta poder VALIDAR el token entrante.
+// Login del panel: el asesor entra con email+password (ver AuthController) y recibe
+// un JWT firmado. El panel (Astro, build estatico) lo guarda en el navegador y lo
+// manda como Bearer en cada request, asi que aqui solo hace falta poder VALIDARLO.
 var jwtSection = builder.Configuration.GetSection("Jwt");
 var jwtSigningKey = jwtSection["SigningKey"] ?? throw new InvalidOperationException("Falta Jwt:SigningKey en la configuración.");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -59,15 +64,29 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization(o =>
     o.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
 
-// El panel (Astro, patron BFF) habla server-a-servidor con este API, asi que ya no
-// depende de CORS para funcionar - se deja abierto solo por comodidad para probar
-// directo desde el navegador/Swagger en dev; el JWT sigue siendo obligatorio de todas
-// formas (FallbackPolicy), asi que no es una superficie de ataque nueva.
+// El panel es un build estatico que corre en el navegador del usuario, asi que SI
+// depende de CORS (llama a este API desde otro origen/puerto). "Cors:AllowedOrigins"
+// (env var Cors__AllowedOrigins, coma-separado) fija el/los origenes reales en
+// produccion; si no esta configurado, cae a abierto (comodo para dev/Swagger sin
+// dominio). El JWT sigue siendo obligatorio de todas formas (FallbackPolicy), asi
+// que un CORS abierto en dev no es, por si solo, una superficie de ataque nueva.
+var allowedOrigins = builder.Configuration["Cors:AllowedOrigins"]
+    ?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    ?? [];
 const string PanelCorsPolicy = "PanelCors";
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(PanelCorsPolicy, policy =>
-        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+    {
+        if (allowedOrigins.Length > 0)
+        {
+            policy.WithOrigins(allowedOrigins).AllowAnyMethod().AllowAnyHeader();
+        }
+        else
+        {
+            policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+        }
+    });
 });
 
 var app = builder.Build();

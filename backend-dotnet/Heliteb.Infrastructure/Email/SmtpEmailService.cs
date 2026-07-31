@@ -127,8 +127,14 @@ public class SmtpEmailService : IEmailService
     private static async Task SendAsync(MimeMessage message, SmtpOptions options, CancellationToken ct)
     {
         using var client = new SmtpClient();
-        await client.ConnectAsync(options.Host, options.Port, SecureSocketOptions.StartTls, ct);
-        await client.AuthenticateAsync(options.User, options.Password, ct);
+        await client.ConnectAsync(options.Host, options.Port, SecureSocketOptions.StartTlsWhenAvailable, ct);
+        // Solo autentica si el servidor realmente anuncia algún mecanismo de AUTH -
+        // relays internos/de prueba (ej. MailHog) no lo soportan, y llamar
+        // AuthenticateAsync ahí igual lanza una excepción aunque nunca se necesitó.
+        if (client.AuthenticationMechanisms.Count > 0)
+        {
+            await client.AuthenticateAsync(options.User, options.Password, ct);
+        }
         await client.SendAsync(message, ct);
         await client.DisconnectAsync(true, ct);
     }

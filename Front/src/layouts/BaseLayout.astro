@@ -1,0 +1,81 @@
+---
+import { ClientRouter } from 'astro:transitions';
+
+// Poppins is the product typeface, self-hosted so it never depends on a CDN.
+import '@fontsource/poppins/400.css';
+import '@fontsource/poppins/500.css';
+import '@fontsource/poppins/600.css';
+import '@fontsource/poppins/700.css';
+import '@/styles/global.css';
+
+import { APP_NAME } from '@/constants/app';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = 'Consola de operaciones asistidas por IA' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="es" data-sidebar="expanded">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>{title} · {APP_NAME}</title>
+
+    <ClientRouter />
+
+    <!--
+      Runs before the first paint and again after every client-side swap, because
+      swapping documents resets <html> attributes. Doing this here (instead of in
+      React) is what keeps the theme, the collapsed rail and the session redirect
+      free of any visible flash.
+    -->
+    <script is:inline>
+      (() => {
+        const read = (key, fallback) => {
+          try {
+            const raw = localStorage.getItem(key);
+            return raw === null ? fallback : JSON.parse(raw);
+          } catch {
+            return fallback;
+          }
+        };
+
+        const applyPreferences = () => {
+          const root = document.documentElement;
+          root.classList.toggle('dark', read('heliteb:theme', 'light') === 'dark');
+          root.dataset.sidebar = read('heliteb:sidebar-collapsed', false) ? 'collapsed' : 'expanded';
+        };
+
+        const enforceSession = () => {
+          const isPublicRoute = location.pathname.startsWith('/login');
+          const hasSession = read('heliteb:session', null) !== null;
+
+          if (!hasSession && !isPublicRoute) location.replace('/login');
+          else if (hasSession && isPublicRoute) location.replace('/');
+        };
+
+        applyPreferences();
+        enforceSession();
+
+        if (!window.__helitebShellBound) {
+          window.__helitebShellBound = true;
+          document.addEventListener('astro:after-swap', () => {
+            applyPreferences();
+            enforceSession();
+          });
+        }
+      })();
+    </script>
+  </head>
+
+  <body>
+    <slot />
+  </body>
+</html>

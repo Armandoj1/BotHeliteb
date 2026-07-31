@@ -1,0 +1,237 @@
+import type { IProviderDefinition } from '@/types';
+import {
+  ANTHROPIC_MODELS,
+  DEEPSEEK_MODELS,
+  GEMINI_MODELS,
+  GROK_MODELS,
+  GROQ_MODELS,
+  MISTRAL_MODELS,
+  OPENAI_MODELS,
+} from './models';
+
+/** First-party APIs consumed directly over HTTPS with a single bearer key. */
+export const HOSTED_PROVIDERS: IProviderDefinition[] = [
+  {
+    id: 'openai',
+    name: 'OpenAI',
+    vendor: 'OpenAI, Inc.',
+    description: 'Modelos GPT para generación, resumen y clasificación de conversaciones.',
+    category: 'hosted',
+    docsUrl: 'https://platform.openai.com/docs/api-reference',
+    accent: '#10a37f',
+    fields: [
+      {
+        name: 'apiKey',
+        label: 'API Key',
+        kind: 'secret',
+        required: true,
+        placeholder: 'sk-…',
+        helpText: 'Se almacena cifrada y nunca se expone en el cliente.',
+        pattern: {
+          source: '^sk-[A-Za-z0-9_-]{20,}$',
+          message: 'Debe comenzar con «sk-» y tener al menos 24 caracteres.',
+        },
+      },
+      {
+        name: 'organization',
+        label: 'Organización',
+        kind: 'text',
+        required: false,
+        placeholder: 'org-…',
+        helpText: 'Opcional. Necesario si tu cuenta pertenece a varias organizaciones.',
+        span: 'half',
+      },
+      {
+        name: 'project',
+        label: 'Proyecto',
+        kind: 'text',
+        required: false,
+        placeholder: 'proj_…',
+        helpText: 'Opcional. Permite separar el consumo por proyecto.',
+        span: 'half',
+      },
+      {
+        name: 'model',
+        label: 'Modelo por defecto',
+        kind: 'select',
+        required: true,
+        options: OPENAI_MODELS,
+      },
+    ],
+  },
+  {
+    id: 'anthropic',
+    name: 'Anthropic',
+    vendor: 'Anthropic PBC',
+    description: 'Modelos Claude, orientados a razonamiento extenso y seguimiento de instrucciones.',
+    category: 'hosted',
+    docsUrl: 'https://docs.anthropic.com/en/api',
+    accent: '#d97757',
+    fields: [
+      {
+        name: 'apiKey',
+        label: 'API Key',
+        kind: 'secret',
+        required: true,
+        placeholder: 'sk-ant-…',
+        pattern: {
+          source: '^sk-ant-[A-Za-z0-9_-]{20,}$',
+          message: 'Debe comenzar con «sk-ant-».',
+        },
+      },
+      {
+        name: 'model',
+        label: 'Modelo por defecto',
+        kind: 'select',
+        required: true,
+        options: ANTHROPIC_MODELS,
+      },
+    ],
+  },
+  {
+    id: 'gemini',
+    name: 'Google Gemini',
+    vendor: 'Google DeepMind',
+    description: 'Modelos multimodales con ventana de contexto amplia y costo competitivo.',
+    category: 'hosted',
+    docsUrl: 'https://ai.google.dev/gemini-api/docs',
+    accent: '#4285f4',
+    fields: [
+      {
+        name: 'apiKey',
+        label: 'API Key',
+        kind: 'secret',
+        required: true,
+        placeholder: 'AQ.… o AIza…',
+        helpText:
+          'Se guarda en el backend y reemplaza a la del archivo .env para embeddings y comparaciones.',
+        pattern: {
+          // Google AI Studio emitía claves «AIza…»; las nuevas empiezan por «AQ.».
+          // Se aceptan ambas para no rechazar credenciales válidas recién creadas.
+          source: '^(AIza[A-Za-z0-9_-]{30,}|AQ\.[A-Za-z0-9_.-]{20,})$',
+          message: 'Debe ser una clave de Google AI Studio («AQ.…» o «AIza…»).',
+        },
+      },
+      {
+        name: 'model',
+        label: 'Modelo por defecto',
+        kind: 'select',
+        required: true,
+        options: GEMINI_MODELS,
+      },
+    ],
+  },
+  {
+    id: 'grok',
+    name: 'Grok',
+    vendor: 'xAI Corp.',
+    description: 'Modelos Grok con acceso a contexto en tiempo real.',
+    category: 'hosted',
+    docsUrl: 'https://docs.x.ai/api',
+    accent: '#1d1d1f',
+    fields: [
+      {
+        name: 'apiKey',
+        label: 'API Key',
+        kind: 'secret',
+        required: true,
+        placeholder: 'xai-…',
+        pattern: {
+          source: '^xai-[A-Za-z0-9]{20,}$',
+          message: 'Debe comenzar con «xai-».',
+        },
+      },
+      {
+        name: 'model',
+        label: 'Modelo por defecto',
+        kind: 'select',
+        required: true,
+        options: GROK_MODELS,
+      },
+    ],
+  },
+  {
+    id: 'groq',
+    name: 'Groq',
+    vendor: 'Groq, Inc.',
+    description: 'Inferencia sobre LPU: los mismos modelos abiertos, con latencia muy baja.',
+    category: 'hosted',
+    docsUrl: 'https://console.groq.com/docs',
+    accent: '#f55036',
+    fields: [
+      {
+        name: 'apiKey',
+        label: 'API Key',
+        kind: 'secret',
+        required: true,
+        placeholder: 'gsk_…',
+        pattern: {
+          source: '^gsk_[A-Za-z0-9]{40,}$',
+          message: 'Las claves de Groq comienzan con «gsk_».',
+        },
+      },
+      {
+        name: 'model',
+        label: 'Modelo por defecto',
+        kind: 'select',
+        required: true,
+        options: GROQ_MODELS,
+      },
+    ],
+  },
+  {
+    id: 'deepseek',
+    name: 'DeepSeek',
+    vendor: 'DeepSeek AI',
+    description: 'Alternativa de bajo costo con modelos de razonamiento explícito.',
+    category: 'hosted',
+    docsUrl: 'https://api-docs.deepseek.com',
+    accent: '#4d6bfe',
+    fields: [
+      {
+        name: 'apiKey',
+        label: 'API Key',
+        kind: 'secret',
+        required: true,
+        placeholder: 'sk-…',
+        pattern: {
+          source: '^sk-[A-Za-z0-9]{20,}$',
+          message: 'Debe comenzar con «sk-».',
+        },
+      },
+      {
+        name: 'model',
+        label: 'Modelo por defecto',
+        kind: 'select',
+        required: true,
+        options: DEEPSEEK_MODELS,
+      },
+    ],
+  },
+  {
+    id: 'mistral',
+    name: 'Mistral AI',
+    vendor: 'Mistral AI SAS',
+    description: 'Modelos europeos con opción de residencia de datos en la UE.',
+    category: 'hosted',
+    docsUrl: 'https://docs.mistral.ai',
+    accent: '#fa500f',
+    fields: [
+      {
+        name: 'apiKey',
+        label: 'API Key',
+        kind: 'secret',
+        required: true,
+        placeholder: 'Clave de La Plateforme',
+        minLength: 24,
+      },
+      {
+        name: 'model',
+        label: 'Modelo por defecto',
+        kind: 'select',
+        required: true,
+        options: MISTRAL_MODELS,
+      },
+    ],
+  },
+];

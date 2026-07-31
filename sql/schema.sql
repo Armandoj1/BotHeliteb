@@ -57,6 +57,16 @@ CREATE TABLE IF NOT EXISTS productos (
 CREATE INDEX IF NOT EXISTS idx_productos_embedding
   ON productos USING hnsw (embedding vector_cosine_ops);
 
+-- Embedding generado con Gemini (gemini-embedding-001, forzado a 1024 dim para
+-- coincidir con el mismo tipo de columna) - convive con el de Ollama/bge-m3 para
+-- poder comparar cuál da mejores resultados de búsqueda antes de decidir cuál usar
+-- en producción. Cuál de las dos columnas lee el agente lo decide Embeddings:Provider
+-- en appsettings.json (ver ProductRepository).
+ALTER TABLE productos ADD COLUMN IF NOT EXISTS embedding_gemini vector(1024);
+
+CREATE INDEX IF NOT EXISTS idx_productos_embedding_gemini
+  ON productos USING hnsw (embedding_gemini vector_cosine_ops);
+
 -- -----------------------------------------------------------------------------
 -- 2. TABLA DE PRECIOS (Nivel Usuario Final / MSRP)
 -- Relación Odoo: product.pricelist.item
@@ -216,18 +226,26 @@ CREATE TABLE IF NOT EXISTS app_config (
 
 -- Asesores comerciales y autenticación por código (OTP) para cotizar por WhatsApp
 CREATE TABLE IF NOT EXISTS asesores (
-  id          SERIAL PRIMARY KEY,
-  nombre      VARCHAR(200) NOT NULL,
-  email       VARCHAR(200) NOT NULL,
-  telefono    VARCHAR(20)  NOT NULL UNIQUE,
-  activo      BOOLEAN      NOT NULL DEFAULT TRUE,
-  created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+  id            SERIAL PRIMARY KEY,
+  nombre        VARCHAR(200) NOT NULL,
+  email         VARCHAR(200) NOT NULL,
+  telefono      VARCHAR(20)  NOT NULL UNIQUE,
+  -- Login del panel: PBKDF2 serializado (ver Pbkdf2PasswordHasher).
+  -- NULL = el asesor existe para el bot pero aun no puede entrar al panel.
+  password_hash VARCHAR(255),
+  activo        BOOLEAN      NOT NULL DEFAULT TRUE,
+  created_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_asesores_email ON asesores (LOWER(email));
 
 -- Asesor administrador del panel: se siembra en una instalación nueva para que
 -- siempre haya alguien que pueda ingresar sin tener que crearlo a mano por API.
-INSERT INTO asesores (nombre, email, telefono, activo) VALUES
-    ('Jose Armando Rodriguez', 'jose.rodriguez@heliteb.co', '573104157712', TRUE)
+-- Rotar esta contraseña inmediatamente tras el primer ingreso a producción,
+-- vía POST /api/auth/cambiar-password.
+INSERT INTO asesores (nombre, email, telefono, password_hash, activo) VALUES
+    ('Jose Armando Rodriguez', 'jose.rodriguez@heliteb.co', '573104157712',
+     'pbkdf2$210000$AeO6fjI6lU8PTOprI06+bg==$Bj15n/SNdSNGqTErFpDvw3UaBxmJeIOjFggaCDuQJQo=', TRUE)
 ON CONFLICT (telefono) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS asesor_auth (
@@ -485,3 +503,22 @@ CREATE TABLE IF NOT EXISTS recursos_muestra (
   cpu_load_1m     NUMERIC(6,2)
 );
 CREATE INDEX IF NOT EXISTS idx_recursos_muestra_medido_en ON recursos_muestra (medido_en);
+
+-- Una fila por cada llamada real a un proveedor de embeddings (Ollama, gratis y
+-- local; Gemini, de pago) - registrada por el cliente correspondiente
+-- (GeminiEmbeddingClient/OllamaEmbeddingClient) para poder comparar cuánto se llamó
+-- cada uno y estimar el costo real de Gemini antes de decidir cuál dejar en
+-- producción. costo_estimado_usd siempre es 0 para "ollama" (self-hosted, sin
+-- facturación por uso); tokens_estimados es una aproximación (caracteres/4), no el
+-- conteo exacto que factura Google - la API de embeddings de Gemini no devuelve el
+-- conteo real de tokens en la respuesta.
+CREATE TABLE IF NOT EXISTS embedding_uso (
+  id                  SERIAL PRIMARY KEY,
+  proveedor           VARCHAR(20)  NOT NULL,
+  caracteres          INT          NOT NULL,
+  tokens_estimados    INT          NOT NULL,
+  costo_estimado_usd  NUMERIC(10,6) NOT NULL DEFAULT 0,
+  creado_en           TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_embedding_uso_creado_en ON embedding_uso (creado_en);
+CREATE INDEX IF NOT EXISTS idx_embedding_uso_proveedor ON embedding_uso (proveedor);

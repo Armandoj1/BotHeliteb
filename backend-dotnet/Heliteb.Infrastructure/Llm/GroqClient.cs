@@ -1,13 +1,16 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Heliteb.Application.Abstractions;
 
 namespace Heliteb.Infrastructure.Llm;
 
 public class GroqOptions
 {
-    public string ApiKey { get; set; } = null!;
+    // Valor con el que arranca la API si nunca se guardó nada desde el panel (ver
+    // ResolveApiKeyAsync) - una vez que alguien la guarda ahí, esta queda ignorada.
+    public string ApiKey { get; set; } = string.Empty;
     public string BaseUrl { get; set; } = "https://api.groq.com/openai/v1";
     // openai/gpt-oss-120b es el que ya probamos en n8n con tool-calling nativo
     // confiable. Evitar openai/gpt-oss-safeguard-20b (moderación, rompe tool
@@ -18,6 +21,12 @@ public class GroqOptions
     public int MaxTokens { get; set; } = 2048;
 }
 
+/// <summary>Forma del JSON guardado en app_config.clave='groq'.</summary>
+internal class GroqConfigJson
+{
+    [JsonPropertyName("api_key")] public string? ApiKey { get; set; }
+}
+
 /// <summary>
 /// Cliente para la API de Groq — mismo formato "chat completions" compatible con
 /// OpenAI que DeepSeek, incluyendo tool calling nativo. El tier gratuito de Groq
@@ -26,18 +35,20 @@ public class GroqOptions
 /// </summary>
 public class GroqClient : ILlmClient
 {
+    private const string ConfigKey = "groq";
+
     private readonly HttpClient _http;
     private readonly GroqOptions _options;
+    private readonly IAppConfigStore _configStore;
 
-    public GroqClient(HttpClient http, GroqOptions options)
+    public GroqClient(HttpClient http, GroqOptions options, IAppConfigStore configStore)
     {
         _http = http;
         _options = options;
+        _configStore = configStore;
         // Uri con base termina en '/' para que el path relativo sin '/' inicial se
         // ANEXE al path del host en vez de reemplazarlo (regla de composición de Uri).
         _http.BaseAddress = new Uri(_options.BaseUrl.TrimEnd('/') + "/");
-        _http.DefaultRequestHeaders.Authorization =
-            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _options.ApiKey);
     }
 
     public async Task<LlmCompletion> CompleteAsync(
@@ -45,6 +56,13 @@ public class GroqClient : ILlmClient
         IReadOnlyList<LlmToolDefinition> tools,
         CancellationToken ct = default)
     {
+        var apiKey = await ResolveApiKeyAsync(ct);
+        if (string.IsNullOrWhiteSpace(apiKey) || apiKey.Equals("CHANGE_ME", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "La API key de Groq no está configurada. Guárdala en 'Uso de IA' → Credenciales de Groq, en el panel.");
+        }
+
         var payload = new JsonObject
         {
             ["model"] = _options.Model,
@@ -60,7 +78,13 @@ public class GroqClient : ILlmClient
 
         // OJO: HttpClient.BaseAddress con path ("/openai/v1") se pisa por completo si
         // el path relativo empieza con "/" — por eso va sin slash inicial aquí.
-        using var response = await _http.PostAsJsonAsync("chat/completions", payload, ct);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "chat/completions")
+        {
+            Content = JsonContent.Create(payload),
+        };
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+
+        using var response = await _http.SendAsync(request, ct);
         if (!response.IsSuccessStatusCode)
         {
             var errorBody = await response.Content.ReadAsStringAsync(ct);
@@ -86,6 +110,26 @@ public class GroqClient : ILlmClient
         }
 
         return new LlmCompletion { Content = content, ToolCalls = toolCalls };
+    }
+
+    /// <summary>
+    /// El panel guarda su propia API key en app_config (ver LlmSettingsController) sin
+    /// reiniciar la API - mismo patrón que GeminiEmbeddingClient.ResolveApiKeyAsync.
+    /// </summary>
+    private async Task<string> ResolveApiKeyAsync(CancellationToken ct)
+    {
+        var overrideJson = await _configStore.GetAsync(ConfigKey, ct);
+        if (string.IsNullOrWhiteSpace(overrideJson)) return _options.ApiKey;
+
+        try
+        {
+            var stored = JsonSerializer.Deserialize<GroqConfigJson>(overrideJson);
+            return !string.IsNullOrWhiteSpace(stored?.ApiKey) ? stored.ApiKey : _options.ApiKey;
+        }
+        catch (JsonException)
+        {
+            return _options.ApiKey;
+        }
     }
 
     private static JsonArray BuildMessagesArray(IReadOnlyList<LlmMessage> messages)

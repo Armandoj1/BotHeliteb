@@ -1,0 +1,8 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { ChatPanel } from '@/components/chat/ChatPanel';
+---
+
+<AdminLayout title="Chat" description="Asistente en vivo y bandeja de respuesta">
+  <ChatPanel client:load />
+</AdminLayout>

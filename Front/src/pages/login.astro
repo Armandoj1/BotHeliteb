@@ -1,0 +1,8 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { LoginPanel } from '@/components/auth/LoginPanel';
+---
+
+<BaseLayout title="Iniciar sesión" description="Accede a la consola de operaciones de HelitebAI">
+  <LoginPanel client:load />
+</BaseLayout>

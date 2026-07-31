@@ -1,0 +1,8 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { CatalogPanel } from '@/components/catalog/CatalogPanel';
+---
+
+<AdminLayout title="Catálogo" description="Productos y disponibilidad del espacio de trabajo">
+  <CatalogPanel client:load />
+</AdminLayout>

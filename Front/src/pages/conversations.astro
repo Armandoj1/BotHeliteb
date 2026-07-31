@@ -1,0 +1,8 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { ConversationsPanel } from '@/components/conversations/ConversationsPanel';
+---
+
+<AdminLayout title="Conversaciones" description="Bandeja unificada de conversaciones por canal">
+  <ConversationsPanel client:load />
+</AdminLayout>

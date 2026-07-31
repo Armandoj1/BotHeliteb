@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Heliteb.Application.Abstractions;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 
 namespace Heliteb.Infrastructure.Embeddings;
 
@@ -22,12 +23,16 @@ public class OllamaEmbeddingClient : IEmbeddingClient
     private readonly HttpClient _http;
     private readonly OllamaOptions _options;
     private readonly IMemoryCache _cache;
+    private readonly IEmbeddingUsoRepository _uso;
+    private readonly ILogger<OllamaEmbeddingClient> _logger;
 
-    public OllamaEmbeddingClient(HttpClient http, OllamaOptions options, IMemoryCache cache)
+    public OllamaEmbeddingClient(HttpClient http, OllamaOptions options, IMemoryCache cache, IEmbeddingUsoRepository uso, ILogger<OllamaEmbeddingClient> logger)
     {
         _http = http;
         _options = options;
         _cache = cache;
+        _uso = uso;
+        _logger = logger;
         _http.BaseAddress = new Uri(_options.BaseUrl);
     }
 
@@ -50,6 +55,27 @@ public class OllamaEmbeddingClient : IEmbeddingClient
         var embedding = doc.RootElement.GetProperty("embedding").EnumerateArray().Select(e => e.GetSingle()).ToArray();
 
         _cache.Set(cacheKey, embedding, CacheTtl);
+        await RegistrarUsoAsync(text, ct);
         return embedding;
+    }
+
+    // Se registra en la misma tabla que Gemini (costo siempre 0, es self-hosted) para
+    // poder comparar volumen de llamadas de ambos proveedores lado a lado en el panel.
+    private async Task RegistrarUsoAsync(string text, CancellationToken ct)
+    {
+        try
+        {
+            await _uso.RegistrarAsync(new EmbeddingUsoDto
+            {
+                Proveedor = "ollama",
+                Caracteres = text.Length,
+                TokensEstimados = Math.Max(1, text.Length / 4),
+                CostoEstimadoUsd = 0,
+            }, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "No se pudo registrar el uso de embeddings de Ollama (no afecta la búsqueda).");
+        }
     }
 }

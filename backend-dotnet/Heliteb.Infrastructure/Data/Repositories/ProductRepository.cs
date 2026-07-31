@@ -3,6 +3,7 @@ using Heliteb.Application.Abstractions;
 using Heliteb.Application.Catalog;
 using Heliteb.Application.Catalog.Dtos;
 using Heliteb.Infrastructure.Data;
+using Heliteb.Infrastructure.Embeddings;
 
 namespace Heliteb.Infrastructure.Data.Repositories;
 
@@ -18,11 +19,19 @@ public class ProductRepository : IProductQueries
 
     private readonly INpgsqlConnectionFactory _connectionFactory;
     private readonly IEmbeddingClient _embeddingClient;
+    // Columna real (embedding | embedding_gemini) que lee/ordena la busqueda semantica,
+    // resuelta una vez por request a partir del switch en memoria (puede cambiar sin
+    // reiniciar la API - ver IEmbeddingProviderSwitch). Nunca viene de input del
+    // usuario final, solo del switch validado contra un allow-list fijo (ver
+    // EmbeddingsOptions.ProveedoresValidos), asi que interpolarla directo en el SQL de
+    // esta clase es seguro (no es una superficie de inyeccion SQL).
+    private readonly string _embeddingColumn;
 
-    public ProductRepository(INpgsqlConnectionFactory connectionFactory, IEmbeddingClient embeddingClient)
+    public ProductRepository(INpgsqlConnectionFactory connectionFactory, IEmbeddingClient embeddingClient, IEmbeddingProviderSwitch embeddingProviderSwitch)
     {
         _connectionFactory = connectionFactory;
         _embeddingClient = embeddingClient;
+        _embeddingColumn = EmbeddingsOptions.ColumnaPara(embeddingProviderSwitch.Current);
     }
 
     public async Task<IReadOnlyList<ProductoDto>> GetAllAsync(CancellationToken ct = default)
@@ -205,8 +214,8 @@ public class ProductRepository : IProductQueries
             // semántica al texto libre (uso, ambiente, características descriptivas).
             var emb = await _embeddingClient.EmbedAsync(query, ct);
             param.Add("QueryVector", PgVectorFormat.ToLiteral(emb));
-            where.Add("p.embedding IS NOT NULL");
-            orden = "p.embedding <=> @QueryVector::vector";
+            where.Add($"p.{_embeddingColumn} IS NOT NULL");
+            orden = $"p.{_embeddingColumn} <=> @QueryVector::vector";
         }
         else
         {
@@ -434,20 +443,20 @@ public class ProductRepository : IProductQueries
     //    total) tenga oportunidad real de competir en vez de quedar tapado.
     private async Task<IReadOnlyList<ProductoDto>> BuscarSemanticaBaseAsync(string queryVector, int limit, CancellationToken ct)
     {
-        const string sql = """
+        var sql = $"""
             WITH ranqueado AS (
                 SELECT p.codigo_sap, m.nombre AS marca, c.nombre AS categoria,
                        p.linea, p.serie, p.sub_serie, p.modelo,
                        p.parametro_1, p.parametro_2, p.parametro_3,
                        p.descripcion, p.modelo_etiqueta, pr.precio_msrp_cop,
                        (SELECT COALESCE(SUM(i.cantidad_disponible), 0) FROM inventario i WHERE i.codigo_sap = p.codigo_sap) AS stock_total,
-                       p.embedding <=> @QueryVector::vector AS distancia,
-                       ROW_NUMBER() OVER (PARTITION BY m.nombre ORDER BY p.embedding <=> @QueryVector::vector) AS puesto_en_marca
+                       p.{_embeddingColumn} <=> @QueryVector::vector AS distancia,
+                       ROW_NUMBER() OVER (PARTITION BY m.nombre ORDER BY p.{_embeddingColumn} <=> @QueryVector::vector) AS puesto_en_marca
                 FROM productos p
                 JOIN marcas m ON p.id_marca = m.id_marca
                 JOIN categorias c ON p.id_categoria = c.id_categoria
                 LEFT JOIN precios pr ON pr.codigo_sap = p.codigo_sap
-                WHERE p.activo = TRUE AND p.embedding IS NOT NULL
+                WHERE p.activo = TRUE AND p.{_embeddingColumn} IS NOT NULL
             ),
             candidatos AS (
                 SELECT *,
@@ -475,7 +484,7 @@ public class ProductRepository : IProductQueries
 
     private async Task<IReadOnlyList<ProductoDto>> BuscarCamarasDeRedAsync(string queryVector, int limit, CancellationToken ct)
     {
-        const string sql = """
+        var sql = $"""
             SELECT p.codigo_sap AS "CodigoSap", m.nombre AS "Marca", c.nombre AS "Categoria",
                    p.linea AS "Linea", p.serie AS "Serie", p.sub_serie AS "SubSerie", p.modelo AS "Modelo",
                    p.parametro_1 AS "Parametro1", p.parametro_2 AS "Parametro2", p.parametro_3 AS "Parametro3",
@@ -486,10 +495,10 @@ public class ProductRepository : IProductQueries
             JOIN marcas m ON p.id_marca = m.id_marca
             JOIN categorias c ON p.id_categoria = c.id_categoria
             LEFT JOIN precios pr ON pr.codigo_sap = p.codigo_sap
-            WHERE p.activo = TRUE AND p.embedding IS NOT NULL
+            WHERE p.activo = TRUE AND p.{_embeddingColumn} IS NOT NULL
               AND p.modelo ~ '^(DS-2CD|iDS-2C|DS-2DE|DS-2DF)'
             ORDER BY (SELECT COALESCE(SUM(i2.cantidad_disponible), 0) FROM inventario i2 WHERE i2.codigo_sap = p.codigo_sap) > 0 DESC,
-                     p.embedding <=> @QueryVector::vector
+                     p.{_embeddingColumn} <=> @QueryVector::vector
             LIMIT @Limit
             """;
 
@@ -499,7 +508,7 @@ public class ProductRepository : IProductQueries
 
     private async Task<IReadOnlyList<ProductoDto>> BuscarPorTipoDeCamaraAsync(string patronTipo, string queryVector, int limit, CancellationToken ct)
     {
-        const string sql = """
+        var sql = $"""
             SELECT p.codigo_sap AS "CodigoSap", m.nombre AS "Marca", c.nombre AS "Categoria",
                    p.linea AS "Linea", p.serie AS "Serie", p.sub_serie AS "SubSerie", p.modelo AS "Modelo",
                    p.parametro_1 AS "Parametro1", p.parametro_2 AS "Parametro2", p.parametro_3 AS "Parametro3",
@@ -510,10 +519,10 @@ public class ProductRepository : IProductQueries
             JOIN marcas m ON p.id_marca = m.id_marca
             JOIN categorias c ON p.id_categoria = c.id_categoria
             LEFT JOIN precios pr ON pr.codigo_sap = p.codigo_sap
-            WHERE p.activo = TRUE AND p.embedding IS NOT NULL
+            WHERE p.activo = TRUE AND p.{_embeddingColumn} IS NOT NULL
               AND p.parametro_1 ILIKE @PatronTipo
             ORDER BY (SELECT COALESCE(SUM(i2.cantidad_disponible), 0) FROM inventario i2 WHERE i2.codigo_sap = p.codigo_sap) > 0 DESC,
-                     p.embedding <=> @QueryVector::vector
+                     p.{_embeddingColumn} <=> @QueryVector::vector
             LIMIT @Limit
             """;
 
@@ -525,7 +534,7 @@ public class ProductRepository : IProductQueries
     // el catalogo: "80 m IR distance" y "IR 30m ..."), no existe como columna estructurada.
     private async Task<IReadOnlyList<ProductoDto>> BuscarPorAlcanceIrAsync(int minMetros, string queryVector, int limit, CancellationToken ct)
     {
-        const string sql = """
+        var sql = $$"""
             SELECT codigo_sap AS "CodigoSap", marca AS "Marca", categoria AS "Categoria",
                    linea AS "Linea", serie AS "Serie", sub_serie AS "SubSerie", modelo AS "Modelo",
                    parametro_1 AS "Parametro1", parametro_2 AS "Parametro2", parametro_3 AS "Parametro3",
@@ -537,7 +546,7 @@ public class ProductRepository : IProductQueries
                        p.parametro_1, p.parametro_2, p.parametro_3,
                        p.descripcion, p.modelo_etiqueta, pr.precio_msrp_cop,
                        (SELECT COALESCE(SUM(i.cantidad_disponible), 0) FROM inventario i WHERE i.codigo_sap = p.codigo_sap) AS stock_total,
-                       p.embedding <=> @QueryVector::vector AS distancia,
+                       p.{{_embeddingColumn}} <=> @QueryVector::vector AS distancia,
                        GREATEST(
                            COALESCE((regexp_match(p.descripcion, '(\d+)\s*m\s*IR', 'i'))[1]::int, 0),
                            COALESCE((regexp_match(p.descripcion, 'IR[^0-9]{0,12}(\d+)\s*m\b', 'i'))[1]::int, 0)
@@ -546,7 +555,7 @@ public class ProductRepository : IProductQueries
                 JOIN marcas m ON p.id_marca = m.id_marca
                 JOIN categorias c ON p.id_categoria = c.id_categoria
                 LEFT JOIN precios pr ON pr.codigo_sap = p.codigo_sap
-                WHERE p.activo = TRUE AND p.embedding IS NOT NULL
+                WHERE p.activo = TRUE AND p.{{_embeddingColumn}} IS NOT NULL
             ) sub
             WHERE ir_metros >= @MinMetros
             ORDER BY (stock_total > 0) DESC, ir_metros DESC, distancia

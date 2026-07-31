@@ -1,0 +1,8 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { QuotationsPanel } from '@/components/quotations/QuotationsPanel';
+---
+
+<AdminLayout title="Cotizaciones" description="Propuestas comerciales y su estado">
+  <QuotationsPanel client:load />
+</AdminLayout>

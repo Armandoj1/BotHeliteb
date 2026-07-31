@@ -8,11 +8,19 @@ namespace Heliteb.Infrastructure.Llm;
 
 public class DeepSeekOptions
 {
-    public string ApiKey { get; set; } = null!;
+    // Valor con el que arranca la API si nunca se guardó nada desde el panel (ver
+    // ResolveApiKeyAsync) - una vez que alguien la guarda ahí, esta queda ignorada.
+    public string ApiKey { get; set; } = string.Empty;
     public string BaseUrl { get; set; } = "https://api.deepseek.com";
     public string Model { get; set; } = "deepseek-chat";
     public double Temperature { get; set; } = 0.3;
     public int MaxTokens { get; set; } = 512;
+}
+
+/// <summary>Forma del JSON guardado en app_config.clave='deepseek'.</summary>
+internal class DeepSeekConfigJson
+{
+    [JsonPropertyName("api_key")] public string? ApiKey { get; set; }
 }
 
 /// <summary>
@@ -22,16 +30,18 @@ public class DeepSeekOptions
 /// </summary>
 public class DeepSeekClient : ILlmClient
 {
+    private const string ConfigKey = "deepseek";
+
     private readonly HttpClient _http;
     private readonly DeepSeekOptions _options;
+    private readonly IAppConfigStore _configStore;
 
-    public DeepSeekClient(HttpClient http, DeepSeekOptions options)
+    public DeepSeekClient(HttpClient http, DeepSeekOptions options, IAppConfigStore configStore)
     {
         _http = http;
         _options = options;
+        _configStore = configStore;
         _http.BaseAddress = new Uri(_options.BaseUrl);
-        _http.DefaultRequestHeaders.Authorization =
-            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _options.ApiKey);
     }
 
     public async Task<LlmCompletion> CompleteAsync(
@@ -39,6 +49,13 @@ public class DeepSeekClient : ILlmClient
         IReadOnlyList<LlmToolDefinition> tools,
         CancellationToken ct = default)
     {
+        var apiKey = await ResolveApiKeyAsync(ct);
+        if (string.IsNullOrWhiteSpace(apiKey) || apiKey.Equals("CHANGE_ME", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "La API key de DeepSeek no está configurada. Guárdala en 'Uso de IA' → Credenciales de DeepSeek, en el panel.");
+        }
+
         var payload = new JsonObject
         {
             ["model"] = _options.Model,
@@ -52,7 +69,13 @@ public class DeepSeekClient : ILlmClient
             payload["tools"] = BuildToolsArray(tools);
         }
 
-        using var response = await _http.PostAsJsonAsync("/v1/chat/completions", payload, ct);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/v1/chat/completions")
+        {
+            Content = JsonContent.Create(payload),
+        };
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+
+        using var response = await _http.SendAsync(request, ct);
         if (!response.IsSuccessStatusCode)
         {
             var errorBody = await response.Content.ReadAsStringAsync(ct);
@@ -78,6 +101,26 @@ public class DeepSeekClient : ILlmClient
         }
 
         return new LlmCompletion { Content = content, ToolCalls = toolCalls };
+    }
+
+    /// <summary>
+    /// El panel guarda su propia API key en app_config (ver LlmSettingsController) sin
+    /// reiniciar la API - mismo patrón que GeminiEmbeddingClient.ResolveApiKeyAsync.
+    /// </summary>
+    private async Task<string> ResolveApiKeyAsync(CancellationToken ct)
+    {
+        var overrideJson = await _configStore.GetAsync(ConfigKey, ct);
+        if (string.IsNullOrWhiteSpace(overrideJson)) return _options.ApiKey;
+
+        try
+        {
+            var stored = JsonSerializer.Deserialize<DeepSeekConfigJson>(overrideJson);
+            return !string.IsNullOrWhiteSpace(stored?.ApiKey) ? stored.ApiKey : _options.ApiKey;
+        }
+        catch (JsonException)
+        {
+            return _options.ApiKey;
+        }
     }
 
     private static JsonArray BuildMessagesArray(IReadOnlyList<LlmMessage> messages)

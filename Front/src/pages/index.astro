@@ -1,0 +1,11 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { DashboardPanel } from '@/components/dashboard/DashboardPanel';
+---
+
+<AdminLayout
+  title="Panel general"
+  description="Métricas y actividad reciente del espacio de trabajo"
+>
+  <DashboardPanel client:load />
+</AdminLayout>

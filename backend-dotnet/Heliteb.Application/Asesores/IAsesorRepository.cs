@@ -9,6 +9,11 @@ public interface IAsesorRepository
 
     Task<Asesor?> GetByTelefonoAsync(string telefono, CancellationToken ct = default);
 
+    /// <summary>Login del panel: el correo es el identificador de ingreso (case-insensitive).</summary>
+    Task<Asesor?> GetByEmailAsync(string email, CancellationToken ct = default);
+
+    Task SetPasswordHashAsync(int asesorId, string passwordHash, CancellationToken ct = default);
+
     Task<Asesor> CreateAsync(Asesor asesor, CancellationToken ct = default);
 
     /// <summary>Autoedicion del propio perfil - nunca cambia telefono (es la identidad de login/OTP).</summary>

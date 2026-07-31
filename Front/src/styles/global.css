@@ -1,0 +1,163 @@
+@import 'tailwindcss';
+
+@import './theme.css';
+@import './base.css';
+
+/* Class-based color scheme so the toggle is deterministic (no OS lock-in). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Collapsed sidebar is a pure CSS state: the attribute is written before paint,
+   so no island has to re-render for the shell to be laid out correctly. */
+/**
+ * `rail:` — the icon-only sidebar. Two independent triggers, both scoped to the
+ * desktop rail so the mobile drawer always keeps its full-width layout:
+ *
+ *  1. the user collapsed it, or
+ *  2. the viewport is under `lg`, where a 264 px sidebar would eat the content.
+ *     Below `lg` navigation stays reachable as icons instead of disappearing.
+ */
+@custom-variant rail {
+  :where(html[data-sidebar='collapsed'] [data-shell-rail]) & {
+    @slot;
+  }
+
+  @media (width < 64rem) {
+    :where([data-shell-rail]) & {
+      @slot;
+    }
+  }
+}
+
+html[data-sidebar='collapsed'] {
+  --sidebar-width: var(--sidebar-width-collapsed);
+}
+
+/* Under `lg` the rail is forced, so the width follows regardless of preference. */
+@media (width < 64rem) {
+  :root {
+    --sidebar-width: var(--sidebar-width-collapsed);
+  }
+}
+
+/**
+ * Bridge design tokens into Tailwind's utility namespaces.
+ * `inline` keeps utilities pointing at the raw custom properties, so a single
+ * `.dark` class re-themes the whole surface without regenerating utilities.
+ */
+@theme inline {
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --color-canvas: var(--canvas);
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-elevated: var(--elevated);
+
+  --color-foreground: var(--foreground);
+  --color-muted: var(--foreground-muted);
+  --color-subtle: var(--foreground-subtle);
+
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-active: var(--primary-active);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-tint: var(--primary-tint);
+  --color-primary-tint-strong: var(--primary-tint-strong);
+
+  --color-success: var(--success);
+  --color-success-tint: var(--success-tint);
+  --color-warning: var(--warning);
+  --color-warning-tint: var(--warning-tint);
+  --color-danger: var(--danger);
+  --color-danger-tint: var(--danger-tint);
+  --color-info: var(--info);
+  --color-info-tint: var(--info-tint);
+
+  --color-ring: var(--ring);
+
+  --radius-xs: var(--radius-xs);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
+
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Entry/exit for Radix floating surfaces (tooltip, menu, select, popover). */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes pop-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+@utility pop-surface {
+  transform-origin: var(--radix-popper-transform-origin, center);
+
+  &[data-state='open'],
+  &[data-state='delayed-open'] {
+    animation: pop-in 160ms var(--ease-out-quint);
+  }
+
+  &[data-state='closed'] {
+    animation: pop-out 110ms var(--ease-out-quint);
+  }
+}
+
+@utility shell-grid {
+  /* The one place the shell geometry lives. Sidebar width is a CSS variable so
+     collapsing is a pure CSS transition — no layout state crosses islands. */
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  transition: grid-template-columns 320ms var(--ease-out-quint);
+}
+
+@utility skeleton-sheen {
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--foreground) 6%, transparent) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+}

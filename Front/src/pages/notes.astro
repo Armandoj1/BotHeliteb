@@ -1,0 +1,8 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { NotesPanel } from '@/components/notes/NotesPanel';
+---
+
+<AdminLayout title="Notas del agente" description="Instrucciones permanentes que guían al asistente">
+  <NotesPanel client:load />
+</AdminLayout>

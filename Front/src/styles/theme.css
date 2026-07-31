@@ -1,0 +1,132 @@
+/**
+ * Design tokens — single source of truth for the visual language.
+ *
+ * Palette: strict monochrome. White, near-black and four greys carry the whole
+ * interface; the accent *is* the foreground colour (black on light, white on
+ * dark), so emphasis comes from contrast rather than from hue. Colour appears
+ * only where it means something: success, warning, danger.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Typography — Poppins, always. The stack only covers the loading window. */
+  --font-sans: 'Poppins', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', ui-monospace, SFMono-Regular, Consolas, monospace;
+
+  /* Radii — soft, never pill-shaped except where intentional. */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 24px;
+
+  /* Surfaces */
+  --canvas: #fafafa;
+  --background: #ffffff;
+  --surface: #ffffff;
+  --surface-muted: #f4f4f4;
+  --surface-sunken: #fafafa;
+  --elevated: #ffffff;
+
+  /* Text */
+  --foreground: #0a0a0a;
+  --foreground-muted: #666668;
+  --foreground-subtle: #9a9a9d;
+
+  /* Lines */
+  --border: #ebebeb;
+  --border-strong: #d4d4d4;
+
+  /* Accent — deliberately achromatic. */
+  --primary: #0a0a0a;
+  --primary-hover: #262626;
+  --primary-active: #404040;
+  --primary-foreground: #ffffff;
+  --primary-tint: #f4f4f4;
+  --primary-tint-strong: #e6e6e6;
+
+  /* Feedback — the only place hue is allowed. */
+  --success: #0f7b4f;
+  --success-tint: #ebf6f1;
+  --warning: #b45309;
+  --warning-tint: #fdf3e7;
+  --danger: #d93036;
+  --danger-tint: #fdeeee;
+  --info: #0a0a0a;
+  --info-tint: #f4f4f4;
+
+  /* Focus ring */
+  --ring: rgb(10 10 10 / 0.2);
+
+  /* Chart ramp — a grey scale reads as one family and never fights the UI. */
+  --chart-1: #0a0a0a;
+  --chart-2: #525252;
+  --chart-3: #8a8a8d;
+  --chart-4: #b8b8bb;
+  --chart-5: #dedede;
+  --chart-grid: #ebebeb;
+
+  /* Elevation — whisper-light. */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+  --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.06), 0 2px 6px -2px rgb(0 0 0 / 0.04);
+  --shadow-lg: 0 12px 32px -8px rgb(0 0 0 / 0.1), 0 4px 12px -4px rgb(0 0 0 / 0.05);
+  --shadow-xl: 0 24px 64px -12px rgb(0 0 0 / 0.14), 0 8px 20px -8px rgb(0 0 0 / 0.06);
+
+  /* Shell metrics */
+  --sidebar-width: 264px;
+  --sidebar-width-collapsed: 72px;
+  --header-height: 60px;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --canvas: #000000;
+  --background: #0a0a0a;
+  --surface: #0f0f0f;
+  --surface-muted: #1a1a1a;
+  --surface-sunken: #070707;
+  --elevated: #171717;
+
+  --foreground: #fafafa;
+  --foreground-muted: #a1a1a1;
+  --foreground-subtle: #6e6e6e;
+
+  --border: #262626;
+  --border-strong: #3d3d3d;
+
+  /* Inverted: on dark, white is the emphatic colour. */
+  --primary: #fafafa;
+  --primary-hover: #e5e5e5;
+  --primary-active: #d4d4d4;
+  --primary-foreground: #0a0a0a;
+  --primary-tint: #1c1c1c;
+  --primary-tint-strong: #2b2b2b;
+
+  --success: #3ecf8e;
+  --success-tint: #0d2018;
+  --warning: #f5a524;
+  --warning-tint: #241a0b;
+  --danger: #ff6166;
+  --danger-tint: #2a1214;
+  --info: #fafafa;
+  --info-tint: #1c1c1c;
+
+  --ring: rgb(250 250 250 / 0.28);
+
+  --chart-1: #fafafa;
+  --chart-2: #a1a1a1;
+  --chart-3: #737373;
+  --chart-4: #4d4d4d;
+  --chart-5: #303030;
+  --chart-grid: #262626;
+
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.5);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.55), 0 1px 2px -1px rgb(0 0 0 / 0.5);
+  --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.6), 0 2px 6px -2px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 12px 32px -8px rgb(0 0 0 / 0.7), 0 4px 12px -4px rgb(0 0 0 / 0.5);
+  --shadow-xl: 0 24px 64px -12px rgb(0 0 0 / 0.8), 0 8px 20px -8px rgb(0 0 0 / 0.6);
+}

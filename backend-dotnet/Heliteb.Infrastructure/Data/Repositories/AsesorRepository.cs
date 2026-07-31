@@ -34,9 +34,31 @@ public class AsesorRepository : IAsesorRepository
         using var conn = _connectionFactory.Create();
         return await conn.QueryFirstOrDefaultAsync<Asesor>("""
             SELECT id AS "Id", nombre AS "Nombre", email AS "Email", telefono AS "Telefono",
-                   activo AS "Activo", created_at AS "CreatedAt"
+                   password_hash AS "PasswordHash", activo AS "Activo", created_at AS "CreatedAt"
             FROM asesores WHERE telefono = @Telefono
             """, new { Telefono = telefono });
+    }
+
+    /// <summary>
+    /// Login del panel. Compara en minúsculas contra el índice único ux_asesores_email
+    /// para que el correo no sea sensible a mayúsculas al ingresar.
+    /// </summary>
+    public async Task<Asesor?> GetByEmailAsync(string email, CancellationToken ct = default)
+    {
+        using var conn = _connectionFactory.Create();
+        return await conn.QueryFirstOrDefaultAsync<Asesor>("""
+            SELECT id AS "Id", nombre AS "Nombre", email AS "Email", telefono AS "Telefono",
+                   password_hash AS "PasswordHash", activo AS "Activo", created_at AS "CreatedAt"
+            FROM asesores WHERE LOWER(email) = LOWER(@Email)
+            """, new { Email = email });
+    }
+
+    public async Task SetPasswordHashAsync(int asesorId, string passwordHash, CancellationToken ct = default)
+    {
+        using var conn = _connectionFactory.Create();
+        await conn.ExecuteAsync(
+            "UPDATE asesores SET password_hash = @PasswordHash WHERE id = @Id",
+            new { Id = asesorId, PasswordHash = passwordHash });
     }
 
     public async Task<Asesor> CreateAsync(Asesor asesor, CancellationToken ct = default)
