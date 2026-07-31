@@ -12,6 +12,19 @@ BACKUPS_DIR="${HELITEB_BACKUPS_DIR:-$HOME/heliteb-backups}"
 cd "$REPO_DIR"
 mkdir -p "$BACKUPS_DIR"
 
+# El candado de concurrencia del workflow de GitHub Actions solo serializa
+# corridas automáticas entre sí - una corrida manual (por SSH, para probar un
+# fix rápido) puede seguir chocando con una automática que arranca al mismo
+# tiempo, y ya pasó dos veces: Docker se confunde con el nombre temporal que
+# usa al recrear un contenedor. flock aquí serializa CUALQUIER combinación de
+# corridas en esta máquina, vengan de donde vengan - la segunda simplemente
+# espera a que la primera termine, en vez de pisarla.
+exec 9>"$BACKUPS_DIR/deploy.lock"
+if ! flock -w 300 9; then
+  echo "ERROR: no se pudo obtener el candado de despliegue en 300s (¿otra corrida colgada?)"
+  exit 1
+fi
+
 echo "==> Guardando el commit actual por si hay que hacer rollback"
 prev_sha="$(git rev-parse HEAD)"
 echo "$prev_sha" > "$BACKUPS_DIR/last-good.txt"
