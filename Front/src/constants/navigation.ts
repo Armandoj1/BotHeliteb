@@ -120,7 +120,7 @@ export const NAV_ITEMS: readonly INavItem[] = [
 ] as const;
 
 const GROUP_LABELS: Record<INavGroup['id'], string> = {
-  workspace: 'Espacio de trabajo',
+  workspace: 'General',
   commercial: 'Comercial',
   platform: 'Plataforma',
 };
