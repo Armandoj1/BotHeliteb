@@ -82,33 +82,18 @@ services:
     depends_on:
       - heliteb-api
 
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: heliteb_pgadmin
-    restart: unless-stopped
-    environment:
-      PGADMIN_DEFAULT_EMAIL:    admin@heliteb.co
-      PGADMIN_DEFAULT_PASSWORD: "${PGADMIN_PASSWORD:-Heliteb2026!}"
-      PGADMIN_CONFIG_SERVER_MODE: "False"
-      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
-    ports:
-      - "5050:80"
-    volumes:
-      - heliteb_pgadmin:/var/lib/pgadmin
-      - ./pgadmin_servers.json:/pgadmin4/servers.json:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
+# Sin pgAdmin: la administración de Postgres se hace con un cliente externo
+# (DBeaver, etc.) contra el puerto 5433 publicado arriba - un pgAdmin propio
+# sería otro contenedor y otro puerto expuesto sin usar.
 
 # No trae Caddy propio: el host de producción ya corre un reverse proxy
 # compartido para varios proyectos (ver Caddyfile en este repo, pensado para
 # fusionarse con el Caddyfile que ya exista - agrega bloques para PANEL_DOMAIN
-# y API_DOMAIN apuntando a host.docker.internal:4321 / :8080, los puertos que
+# y API_DOMAIN apuntando a host.docker.internal:4321 / :5090, los puertos que
 # heliteb-panel/heliteb-api ya publican en el host). En un servidor limpio sin
 # proxy propio, ese mismo Caddyfile se puede correr suelto con
 # `docker run -p 80:80 -p 443:443 -v ./Caddyfile:/etc/caddy/Caddyfile caddy:2-alpine`.
 
 volumes:
   heliteb_pgdata:
-  heliteb_pgadmin:
   heliteb_ollama:
