@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { UserPlus, UsersRound } from 'lucide-react';
+import { useState } from 'react';
 
 import { AsyncBoundary } from '@/components/common/AsyncBoundary';
 import { DataToolbar } from '@/components/common/DataToolbar';
@@ -7,8 +8,10 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { Badge, Button, EmptyState, Select, Skeleton } from '@/components/ui';
 import { useAdvisors } from '@/features/advisors/hooks/useAdvisors';
 import { ADVISOR_STATUS_OPTIONS } from '@/features/advisors/labels';
+import { useSessionUser } from '@/hooks/useSessionUser';
 import { staggerContainer } from '@/lib/motion';
 import { AdvisorCard } from './AdvisorCard';
+import { CreateAdvisorDialog } from './CreateAdvisorDialog';
 
 const GRID_CLASSES = 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3';
 
@@ -16,23 +19,30 @@ const GRID_CLASSES = 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3';
 export function AdvisorsPanel() {
   const state = useAdvisors();
   const { resource, query, filters } = state;
+  const user = useSessionUser();
+  const isAdmin = user?.role === 'admin';
+  const [createOpen, setCreateOpen] = useState(false);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Asesores"
-        description="Equipo humano detrás del asistente: disponibilidad, carga de trabajo y desempeño del día."
+        description="El equipo de HELITEB con acceso al panel — quién puede entrar y con qué rol."
         actions={
           <>
             <Badge tone="success" size="md" withDot>
               {state.onlineCount} en línea
             </Badge>
-            <Badge tone="primary" size="md">
-              {state.activeConversations} conversaciones activas
-            </Badge>
-            <Button variant="primary" size="sm" leftIcon={<UserPlus aria-hidden />}>
-              Invitar asesor
-            </Button>
+            {isAdmin ? (
+              <Button
+                variant="primary"
+                size="sm"
+                leftIcon={<UserPlus aria-hidden />}
+                onClick={() => setCreateOpen(true)}
+              >
+                Crear asesor
+              </Button>
+            ) : null}
           </>
         }
       />
@@ -78,7 +88,9 @@ export function AdvisorsPanel() {
             description={
               state.hasActiveFilters
                 ? 'Ajusta los filtros para ver al resto del equipo.'
-                : 'Invita a tu equipo para que puedan atender las conversaciones escaladas.'
+                : isAdmin
+                  ? 'Crea la primera cuenta de asesor para que tu equipo pueda entrar al panel.'
+                  : 'Pídele a un administrador que cree tu cuenta de asesor.'
             }
             variant="page"
             action={
@@ -102,6 +114,10 @@ export function AdvisorsPanel() {
           </motion.div>
         )}
       </AsyncBoundary>
+
+      {isAdmin ? (
+        <CreateAdvisorDialog open={createOpen} onOpenChange={setCreateOpen} onCreate={state.create} />
+      ) : null}
     </div>
   );
 }

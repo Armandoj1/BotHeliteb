@@ -233,6 +233,8 @@ CREATE TABLE IF NOT EXISTS asesores (
   -- Login del panel: PBKDF2 serializado (ver Pbkdf2PasswordHasher).
   -- NULL = el asesor existe para el bot pero aun no puede entrar al panel.
   password_hash VARCHAR(255),
+  -- 'admin' puede crear/borrar asesores; 'asesor' es el rol por defecto.
+  rol           VARCHAR(20)  NOT NULL DEFAULT 'asesor',
   activo        BOOLEAN      NOT NULL DEFAULT TRUE,
   created_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
@@ -243,9 +245,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_asesores_email ON asesores (LOWER(email));
 -- siempre haya alguien que pueda ingresar sin tener que crearlo a mano por API.
 -- Rotar esta contraseña inmediatamente tras el primer ingreso a producción,
 -- vía POST /api/auth/cambiar-password.
-INSERT INTO asesores (nombre, email, telefono, password_hash, activo) VALUES
+INSERT INTO asesores (nombre, email, telefono, password_hash, rol, activo) VALUES
     ('Jose Armando Rodriguez', 'jose.rodriguez@heliteb.co', '573104157712',
-     'pbkdf2$210000$AeO6fjI6lU8PTOprI06+bg==$Bj15n/SNdSNGqTErFpDvw3UaBxmJeIOjFggaCDuQJQo=', TRUE)
+     'pbkdf2$210000$AeO6fjI6lU8PTOprI06+bg==$Bj15n/SNdSNGqTErFpDvw3UaBxmJeIOjFggaCDuQJQo=', 'admin', TRUE)
 ON CONFLICT (telefono) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS asesor_auth (

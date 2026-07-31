@@ -1,6 +1,6 @@
 import type { IdType } from './common.types';
 
-export type UserRoleType = 'owner' | 'admin' | 'agent' | 'viewer';
+export type UserRoleType = 'admin' | 'asesor';
 
 export interface IUser {
   id: IdType;

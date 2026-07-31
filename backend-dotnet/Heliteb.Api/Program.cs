@@ -61,8 +61,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 // Protegido por defecto: cualquier controller nuevo queda exigiendo sesion de asesor
 // salvo que se marque [AllowAnonymous] explicitamente (login y los dos webhooks, que
 // ya tienen su propio esquema de verificacion - HMAC / secreto por query string).
+// "AdminOnly" es para acciones que un asesor cualquiera no deberia poder hacer
+// (crear/borrar otros asesores) - ver AsesoresController.
 builder.Services.AddAuthorization(o =>
-    o.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
+{
+    o.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+    o.AddPolicy("AdminOnly", p => p.RequireClaim("role", "admin"));
+});
 
 // El panel es un build estatico que corre en el navegador del usuario, asi que SI
 // depende de CORS (llama a este API desde otro origen/puerto). "Cors:AllowedOrigins"

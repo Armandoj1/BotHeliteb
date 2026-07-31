@@ -17,15 +17,10 @@ export function toAdvisor(asesor: IApiAsesorListItem): IAdvisor {
     id: String(asesor.id),
     name: asesor.nombre,
     email: asesor.email,
+    phone: asesor.telefono,
     initials: buildInitials(asesor.nombre),
-    role: asesor.verificado ? 'Asesor verificado' : 'Asesor',
+    role: asesor.rol === 'admin' ? 'admin' : 'asesor',
     status: resolveStatus(asesor),
-    // Workload metrics do not exist in the API yet. Zero is honest; inventing
-    // numbers here would make the cards look informative while being fiction.
-    activeConversations: 0,
-    resolvedToday: 0,
-    avgResponseTime: 0,
-    satisfaction: 0,
-    specialties: [asesor.telefono],
+    active: asesor.activo,
   };
 }

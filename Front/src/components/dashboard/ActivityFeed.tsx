@@ -31,7 +31,7 @@ export function ActivityFeed({ entries }: IActivityFeedProps) {
       <CardHeader>
         <div>
           <CardTitle>Actividad reciente</CardTitle>
-          <CardDescription>Eventos del espacio de trabajo en tiempo real</CardDescription>
+          <CardDescription>Lo último que pasó en el panel</CardDescription>
         </div>
       </CardHeader>
 

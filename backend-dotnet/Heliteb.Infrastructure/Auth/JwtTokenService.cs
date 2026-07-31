@@ -23,6 +23,7 @@ public class JwtTokenService : IJwtTokenService
             new Claim(JwtRegisteredClaimNames.Sub, asesor.Id.ToString()),
             new Claim("phone", asesor.Telefono),
             new Claim("name", asesor.Nombre),
+            new Claim("role", asesor.Rol),
         };
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SigningKey));

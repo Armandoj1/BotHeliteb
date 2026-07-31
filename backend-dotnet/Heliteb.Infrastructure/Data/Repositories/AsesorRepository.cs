@@ -20,7 +20,7 @@ public class AsesorRepository : IAsesorRepository
         using var conn = _connectionFactory.Create();
         var rows = await conn.QueryAsync<AsesorListItemDto>("""
             SELECT a.id AS "Id", a.nombre AS "Nombre", a.email AS "Email", a.telefono AS "Telefono",
-                   a.activo AS "Activo", a.created_at AS "CreatedAt",
+                   a.rol AS "Rol", a.activo AS "Activo", a.created_at AS "CreatedAt",
                    (aa.verificado_hasta IS NOT NULL AND aa.verificado_hasta > now()) AS "Verificado"
             FROM asesores a
             LEFT JOIN asesor_auth aa ON aa.asesor_id = a.id
@@ -34,7 +34,7 @@ public class AsesorRepository : IAsesorRepository
         using var conn = _connectionFactory.Create();
         return await conn.QueryFirstOrDefaultAsync<Asesor>("""
             SELECT id AS "Id", nombre AS "Nombre", email AS "Email", telefono AS "Telefono",
-                   password_hash AS "PasswordHash", activo AS "Activo", created_at AS "CreatedAt"
+                   password_hash AS "PasswordHash", rol AS "Rol", activo AS "Activo", created_at AS "CreatedAt"
             FROM asesores WHERE telefono = @Telefono
             """, new { Telefono = telefono });
     }
@@ -48,7 +48,7 @@ public class AsesorRepository : IAsesorRepository
         using var conn = _connectionFactory.Create();
         return await conn.QueryFirstOrDefaultAsync<Asesor>("""
             SELECT id AS "Id", nombre AS "Nombre", email AS "Email", telefono AS "Telefono",
-                   password_hash AS "PasswordHash", activo AS "Activo", created_at AS "CreatedAt"
+                   password_hash AS "PasswordHash", rol AS "Rol", activo AS "Activo", created_at AS "CreatedAt"
             FROM asesores WHERE LOWER(email) = LOWER(@Email)
             """, new { Email = email });
     }
@@ -65,8 +65,8 @@ public class AsesorRepository : IAsesorRepository
     {
         using var conn = _connectionFactory.Create();
         var id = await conn.ExecuteScalarAsync<int>("""
-            INSERT INTO asesores (nombre, email, telefono, activo)
-            VALUES (@Nombre, @Email, @Telefono, @Activo)
+            INSERT INTO asesores (nombre, email, telefono, password_hash, rol, activo)
+            VALUES (@Nombre, @Email, @Telefono, @PasswordHash, @Rol, @Activo)
             RETURNING id
             """, asesor);
         asesor.Id = id;

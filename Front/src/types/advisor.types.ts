@@ -6,13 +6,9 @@ export interface IAdvisor {
   id: IdType;
   name: string;
   email: string;
+  phone: string;
   initials: string;
-  role: string;
+  role: 'admin' | 'asesor';
   status: AdvisorStatusType;
-  activeConversations: number;
-  resolvedToday: number;
-  /** Average first-response time in seconds. */
-  avgResponseTime: number;
-  satisfaction: number;
-  specialties: string[];
+  active: boolean;
 }

@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 
 import { useListModule, type IListModule } from '@/hooks/useListModule';
-import { fetchAdvisors } from '@/services/advisor.service';
-import type { AdvisorStatusType, IAdvisor } from '@/types';
-import { matchesQuery, sumBy } from '@/utils/collection';
+import { createAdvisor, fetchAdvisors } from '@/services/advisor.service';
+import type { CreateAdvisorFormType } from '@/schemas/advisor.schema';
+import type { AdvisorStatusType, IAdvisor, ResultType } from '@/types';
+import { matchesQuery } from '@/utils/collection';
 
 export interface IAdvisorFilters {
   search: string;
@@ -21,7 +22,9 @@ function matchesFilters(item: IAdvisor, filters: IAdvisorFilters): boolean {
 
 export interface IAdvisorsState extends IListModule<IAdvisor, IAdvisorFilters> {
   onlineCount: number;
-  activeConversations: number;
+  create: (
+    payload: CreateAdvisorFormType,
+  ) => Promise<ResultType<{ advisor: IAdvisor; temporaryPassword: string }>>;
 }
 
 export function useAdvisors(): IAdvisorsState {
@@ -37,10 +40,11 @@ export function useAdvisors(): IAdvisorsState {
     [list.items],
   );
 
-  const activeConversations = useMemo(
-    () => sumBy(list.items, (item) => item.activeConversations),
-    [list.items],
-  );
+  const create = async (payload: CreateAdvisorFormType) => {
+    const result = await createAdvisor(payload);
+    if (result.ok) void list.resource.reload();
+    return result;
+  };
 
-  return { ...list, onlineCount, activeConversations };
+  return { ...list, onlineCount, create };
 }

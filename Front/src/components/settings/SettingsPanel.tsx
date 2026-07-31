@@ -15,7 +15,7 @@ export function SettingsPanel() {
     <div className="space-y-6">
       <PageHeader
         title="Configuración"
-        description="Preferencias del espacio de trabajo, comportamiento del asistente y notificaciones del equipo."
+        description="Preferencias del panel, comportamiento del asistente y notificaciones del equipo."
       />
 
       <AsyncBoundary

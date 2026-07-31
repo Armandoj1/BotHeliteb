@@ -30,6 +30,8 @@ export const ENDPOINTS = {
   },
   advisors: {
     list: '/api/asesores',
+    create: '/api/asesores',
+    remove: (id: string) => `/api/asesores/${encodeURIComponent(id)}`,
   },
   notes: {
     list: '/api/agente-notas',

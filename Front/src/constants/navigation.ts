@@ -115,7 +115,7 @@ export const NAV_ITEMS: readonly INavItem[] = [
     label: 'Configuración',
     href: ROUTES.SETTINGS,
     icon: Settings2,
-    description: 'Preferencias del espacio de trabajo',
+    description: 'Preferencias del panel',
     group: 'platform',
   },
 ] as const;

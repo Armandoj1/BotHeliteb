@@ -10,16 +10,12 @@ export function buildInitials(nombre: string): string {
   return `${first}${second}`.toUpperCase();
 }
 
-/**
- * The API has no role model yet — every advisor who can reach the panel has the
- * same permissions — so the UI role is fixed rather than invented per user.
- */
 export function toUser(asesor: IApiAsesorResumen): IUser {
   return {
     id: String(asesor.id),
     name: asesor.nombre,
     email: asesor.email,
-    role: 'admin',
+    role: asesor.rol === 'admin' ? 'admin' : 'asesor',
     initials: buildInitials(asesor.nombre),
     organization: 'HELITEB',
   };

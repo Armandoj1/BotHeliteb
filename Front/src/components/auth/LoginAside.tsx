@@ -7,18 +7,18 @@ import { staggerContainer, staggerItem } from '@/lib/motion';
 const HIGHLIGHTS = [
   {
     icon: BrainCircuit,
-    title: 'Once proveedores de IA',
-    description: 'Credenciales, pruebas de conexión y consumo en un solo lugar.',
+    title: 'El mismo asistente de WhatsApp',
+    description: 'Pruébalo desde aquí antes de responderle a un cliente: mismo catálogo, mismos precios.',
   },
   {
     icon: Layers,
-    title: 'Bandeja unificada',
-    description: 'WhatsApp, webchat, email e Instagram sin cambiar de pestaña.',
+    title: 'Tus conversaciones de WhatsApp',
+    description: 'Revisa el hilo completo de cada cliente sin salir del panel.',
   },
   {
     icon: ShieldCheck,
-    title: 'Control del asistente',
-    description: 'Notas, escalamientos y políticas comerciales siempre aplicadas.',
+    title: 'Notas del agente',
+    description: 'Ajusta cómo responde el asistente cuando algo no está saliendo bien.',
   },
 ] as const;
 
@@ -61,7 +61,7 @@ export function LoginAside() {
 
       <div className="relative">
         <h2 className="max-w-sm text-[28px] font-semibold leading-[1.15] tracking-[-0.03em]">
-          La consola donde tu equipo y tu IA trabajan sobre los mismos datos.
+          La herramienta interna de los asesores de HELITEB.
         </h2>
 
         <motion.ul

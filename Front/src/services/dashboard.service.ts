@@ -29,7 +29,7 @@ export interface IDashboardSnapshot {
  */
 export async function fetchDashboardSnapshot(): Promise<ResultType<IDashboardSnapshot>> {
   if (!isApiConfigured()) {
-    return { ok: false, error: 'Configura PUBLIC_API_URL para ver las métricas del espacio de trabajo.' };
+    return { ok: false, error: 'Configura PUBLIC_API_URL para ver las métricas del panel.' };
   }
 
   const result = await httpClient.get<IApiMetrics>(ENDPOINTS.dashboard.metrics);

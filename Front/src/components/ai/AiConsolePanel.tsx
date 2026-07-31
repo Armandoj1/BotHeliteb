@@ -29,7 +29,7 @@ export function AiConsolePanel() {
       <div className="space-y-6">
         <PageHeader
           title="Uso de IA"
-          description="Administra las credenciales de cada proveedor, verifica su conectividad y revisa el consumo del espacio de trabajo."
+          description="Administra las credenciales de cada proveedor, verifica su conectividad y revisa cuánto se ha usado."
         />
 
         <AiConsoleSummary

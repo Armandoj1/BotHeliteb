@@ -15,10 +15,8 @@ import { signOut } from '@/services/auth.service';
 import type { IUser, UserRoleType } from '@/types';
 
 const ROLE_LABELS: Record<UserRoleType, string> = {
-  owner: 'Propietario',
   admin: 'Administrador',
-  agent: 'Asesor',
-  viewer: 'Solo lectura',
+  asesor: 'Asesor',
 };
 
 export interface IUserMenuProps {

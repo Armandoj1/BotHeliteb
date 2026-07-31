@@ -11,6 +11,7 @@ export interface IApiAsesorResumen {
   nombre: string;
   email: string;
   telefono: string;
+  rol: string;
 }
 
 export interface IApiLoginResponse {
@@ -23,6 +24,12 @@ export interface IApiAsesorListItem extends IApiAsesorResumen {
   activo: boolean;
   created_at: string;
   verificado: boolean;
+}
+
+export interface IApiCrearAsesorResponse {
+  asesor: IApiAsesorResumen & { activo: boolean };
+  /** Solo viene en esta respuesta, una vez — nunca se puede volver a consultar. */
+  password_temporal: string;
 }
 
 export interface IApiStockBodega {

@@ -21,7 +21,7 @@ export function DashboardPanel() {
     <div className="space-y-6">
       <PageHeader
         title="Panel general"
-        description="Resumen operativo del espacio de trabajo: volumen de conversaciones, consumo de IA y actividad del equipo."
+        description="Resumen operativo: volumen de conversaciones, consumo de IA y actividad del equipo."
         actions={
           <>
             <Button

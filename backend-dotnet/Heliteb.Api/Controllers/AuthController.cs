@@ -89,7 +89,7 @@ public class AuthController : ControllerBase
         {
             ok = true,
             token = _jwt.GenerarToken(asesor),
-            asesor = new { asesor.Id, asesor.Nombre, asesor.Email, asesor.Telefono },
+            asesor = new { asesor.Id, asesor.Nombre, asesor.Email, asesor.Telefono, asesor.Rol },
         });
     }
 
