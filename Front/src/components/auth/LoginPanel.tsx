@@ -37,12 +37,6 @@ export function LoginPanel() {
           <div className="mt-8">
             <LoginForm />
           </div>
-
-          <p className="mt-8 rounded-lg border border-border bg-surface-muted px-3.5 py-3 text-[12px] leading-relaxed text-muted">
-            <span className="font-medium text-foreground">Entorno de demostración.</span> Entra con
-            cualquier correo válido y una contraseña de 6 caracteres o más. Usa{' '}
-            <code className="font-mono text-[11px]">password</code> para ver el estado de error.
-          </p>
         </motion.div>
       </main>
     </div>
