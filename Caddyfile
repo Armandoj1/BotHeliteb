@@ -20,6 +20,8 @@
 {$API_DOMAIN} {
 	# Lo usan tanto el navegador del panel (build estatico, PUBLIC_API_URL
 	# apunta aqui) como servicios externos (InboxCRM, Kommo, n8n) para los
-	# webhooks.
-	reverse_proxy host.docker.internal:8080
+	# webhooks. Puerto 5090 (el publicado en el host por heliteb-api en
+	# docker-compose.yml), NO el 8080 interno del contenedor - host.docker.internal
+	# entra por la red del host, no por la red interna de Docker.
+	reverse_proxy host.docker.internal:5090
 }
