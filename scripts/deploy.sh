@@ -63,3 +63,11 @@ if [ "$panel_status" != "200" ] && [ "$panel_status" != "301" ]; then
 fi
 
 echo "==> Despliegue OK (API: $api_status, panel: $panel_status)"
+
+# Cada rebuild deja capas de caché de BuildKit y, si cambió el Dockerfile o el
+# código, la imagen anterior sin tag (dangling) - sin esto se acumulan varios
+# GB por despliegue con el tiempo. Nunca toca volúmenes ni imágenes en uso.
+echo "==> Limpiando caché de build e imágenes sin usar"
+docker builder prune -af >/dev/null
+docker image prune -f >/dev/null
+echo "==> Limpieza OK"
