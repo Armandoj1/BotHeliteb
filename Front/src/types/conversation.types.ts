@@ -4,7 +4,11 @@ export type ChannelType = 'whatsapp' | 'webchat' | 'email' | 'instagram' | 'tele
 
 export type ConversationStatusType = 'open' | 'pending' | 'resolved' | 'escalated';
 
-export type MessageAuthorType = 'customer' | 'agent' | 'assistant' | 'system';
+// 'user' es exclusivo del chat interno asesor↔IA (ChatPanel): ahí el asesor es
+// "el usuario" desde la perspectiva del LLM, distinto de 'customer' (el cliente
+// de WhatsApp en Conversaciones) - ver outboundAuthors en MessageBubble, que
+// decide qué lado se pinta como "propio" según la pantalla.
+export type MessageAuthorType = 'customer' | 'agent' | 'assistant' | 'user' | 'system';
 
 export interface IMessage {
   id: IdType;

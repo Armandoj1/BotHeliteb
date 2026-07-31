@@ -42,7 +42,7 @@ export function ChatPanel() {
               className="flex-1"
             />
           ) : (
-            <MessageThread messages={chat.messages} className="flex-1" />
+            <MessageThread messages={chat.messages} className="flex-1" outboundAuthors={['user']} />
           )}
         </AsyncBoundary>
 

@@ -5,15 +5,25 @@ import { Sparkles } from 'lucide-react';
 import { renderBold } from '@/components/common/RichText';
 import { cn } from '@/lib/cn';
 import { staggerItem } from '@/lib/motion';
-import type { IMessage } from '@/types';
+import type { IMessage, MessageAuthorType } from '@/types';
 import { formatTime } from '@/utils/format-date';
 
 export interface IMessageBubbleProps {
   message: IMessage;
+  /**
+   * Qué autores se pintan como "propios" (alineados a la derecha) en esta
+   * pantalla. En Conversaciones, "nuestro lado" es agent+assistant (el cliente
+   * es el otro lado); en el chat interno con la IA es al revés — el asesor es
+   * 'user' y el 'assistant' pasa a ser el otro lado. Sin esto, ambas pantallas
+   * comparten el mismo componente pero necesitan lados opuestos.
+   */
+  outboundAuthors?: readonly MessageAuthorType[];
 }
 
+const DEFAULT_OUTBOUND_AUTHORS: readonly MessageAuthorType[] = ['agent', 'assistant'];
+
 /** System notices read as annotations; everyone else gets a bubble. */
-export function MessageBubble({ message }: IMessageBubbleProps) {
+export function MessageBubble({ message, outboundAuthors = DEFAULT_OUTBOUND_AUTHORS }: IMessageBubbleProps) {
   if (message.author === 'system') {
     return (
       <motion.li variants={staggerItem} className="flex justify-center py-1">
@@ -24,7 +34,7 @@ export function MessageBubble({ message }: IMessageBubbleProps) {
     );
   }
 
-  const isOutbound = message.author === 'agent' || message.author === 'assistant';
+  const isOutbound = outboundAuthors.includes(message.author);
 
   return (
     <motion.li

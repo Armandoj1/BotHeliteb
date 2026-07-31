@@ -60,7 +60,7 @@ export function useChat(): IChatState {
       // vanishes until the reply lands feels broken.
       const own: IMessage = {
         id: `${sessionId}-own-${Date.now()}`,
-        author: 'agent',
+        author: 'user',
         authorName: 'Tú',
         content,
         createdAt: new Date().toISOString(),

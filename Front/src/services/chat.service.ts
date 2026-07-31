@@ -1,8 +1,7 @@
 import { ENDPOINTS } from '@/api/endpoints';
 import { httpClient } from '@/api/http-client';
-import { toMessageAuthor } from '@/api/mappers/conversation.mapper';
 import type { IApiMensaje } from '@/api/contracts';
-import type { IMessage, ResultType } from '@/types';
+import type { IMessage, MessageAuthorType, ResultType } from '@/types';
 import { isApiConfigured } from '@/services/transport';
 
 /**
@@ -22,6 +21,15 @@ const OFFLINE_ERROR = 'Configura PUBLIC_API_URL para conversar con el asistente.
 /** The agent runs tools and semantic search before answering; 20 s is not enough. */
 const AGENT_TIMEOUT_MS = 120_000;
 
+// Distinto del mapeo de Conversaciones (toMessageAuthor): ahí "user" es el
+// cliente de WhatsApp; aquí "user" es el propio asesor hablando con la IA -
+// mismos nombres de rol del LLM, significado distinto según la pantalla.
+function toChatAuthor(role: string | null | undefined): MessageAuthorType {
+  if (role === 'assistant') return 'assistant';
+  if (role === 'user') return 'user';
+  return 'system';
+}
+
 export async function fetchChatHistory(sessionId: string): Promise<ResultType<IMessage[]>> {
   if (!isApiConfigured()) return { ok: false, error: OFFLINE_ERROR };
 
@@ -31,11 +39,11 @@ export async function fetchChatHistory(sessionId: string): Promise<ResultType<IM
   return {
     ok: true,
     value: (result.value ?? []).map((mensaje, index) => {
-      const author = toMessageAuthor(mensaje.role);
+      const author = toChatAuthor(mensaje.role);
       return {
         id: `${sessionId}-${index}`,
         author,
-        authorName: author === 'customer' ? 'Tú' : 'Asistente HelitebAI',
+        authorName: author === 'user' ? 'Tú' : 'Asistente HelitebAI',
         content: mensaje.content,
         createdAt: mensaje.created_at,
       };

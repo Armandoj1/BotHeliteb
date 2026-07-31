@@ -3,17 +3,19 @@ import { useEffect, useRef } from 'react';
 
 import { cn } from '@/lib/cn';
 import { staggerContainer } from '@/lib/motion';
-import type { IMessage } from '@/types';
+import type { IMessage, MessageAuthorType } from '@/types';
 import { formatDate } from '@/utils/format-date';
 import { MessageBubble } from './MessageBubble';
 
 export interface IMessageThreadProps {
   messages: readonly IMessage[];
   className?: string;
+  /** Ver MessageBubble - qué autores se pintan como "propios" en esta pantalla. */
+  outboundAuthors?: readonly MessageAuthorType[];
 }
 
 /** Scrollable transcript that keeps the newest message in view. */
-export function MessageThread({ messages, className }: IMessageThreadProps) {
+export function MessageThread({ messages, className, outboundAuthors }: IMessageThreadProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -37,7 +39,7 @@ export function MessageThread({ messages, className }: IMessageThreadProps) {
         className="flex flex-col gap-3.5"
       >
         {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
+          <MessageBubble key={message.id} message={message} outboundAuthors={outboundAuthors} />
         ))}
       </motion.ul>
 
