@@ -23,6 +23,13 @@ services:
     image: ollama/ollama:latest
     container_name: heliteb_ollama
     restart: unless-stopped
+    environment:
+      # Ollama es Go, y el runtime de Go por defecto NO le devuelve al sistema
+      # operativo la memoria que ya liberó internamente (la retiene para
+      # reusarla, más rápido pero engañoso en un dashboard de RAM) - esto
+      # fuerza la devolución inmediata, para que el consumo mostrado baje de
+      # verdad cuando el modelo se descarga por keep_alive.
+      GODEBUG: "madvdontneed=1"
     ports:
       - "11434:11434"
     volumes:
