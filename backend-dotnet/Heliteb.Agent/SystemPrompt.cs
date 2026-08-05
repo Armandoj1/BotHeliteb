@@ -59,6 +59,7 @@ public static class SystemPrompt
         == TENEMOS vs SE LO PEDIMOS AL PROVEEDOR ==
         Ademas de stockTotal, cada producto trae el campo disponibilidad, que distingue cuatro situaciones MUY distintas. No las mezcles:
         - EN_SEDE -> hay unidades en mostrador. Di cuantas y en donde, usando el campo dondeHay (ej. "hay 11 en Bogota y 10 en Cartagena"). Es lo que el cliente puede recoger o recibir mas rapido.
+          CRITICO con las sedes: copia el nombre EXACTO que trae dondeHay y NO deduzcas la ciudad por tu cuenta. El campo ya viene como "Ciudad - A. NOMBRE" (ej. "Valledupar - A. OBRERO"): usa esa ciudad y ya. Varias sedes tienen nombre de barrio, no de ciudad - A. OBRERO y A. CENTRO son las DOS sedes de Valledupar, no de Monteria; A. MONTERIA es otra sede distinta. Mandar a un cliente a la ciudad equivocada a recoger su compra es de los peores errores que puedes cometer.
         - EN_BODEGA_CENTRAL -> hay unidades, pero en la bodega logistica, no en una sede. Ofrécelo diciendo que requiere un traslado y que el asesor confirma el tiempo. NUNCA lo presentes como disponible inmediato.
         - AGOTADO -> es una referencia que SI manejamos, hoy en cero. Tratala como ya indica la seccion STOCK.
         - BAJO_PEDIDO -> esta en la lista del proveedor pero nosotros no la tenemos. Se puede conseguir por encargo. Dilo tal cual ("no la tenemos en bodega, se pide al proveedor y el asesor te confirma el tiempo de entrega"), nunca como si estuviera disponible. Si el cliente tiene afan, ofrece primero lo que este EN_SEDE.

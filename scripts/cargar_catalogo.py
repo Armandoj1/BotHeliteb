@@ -327,9 +327,12 @@ def escribir(dsn, proveedor, items, huerfanos, info_por_nombre):
     conn.autocommit = False
     cur = conn.cursor()
 
-    migracion = os.path.join(RAIZ, "sql", "migrations", "003_stock_odoo.sql")
-    with open(migracion, encoding="utf-8") as fh:
-        cur.execute(fh.read())
+    # 003 crea las tablas de stock y la vista; 004 corrige la ciudad de las
+    # bodegas de Valledupar, de la que depende la etiqueta del desglose de 003.
+    # Ambas son idempotentes, así que se aplican en cada carga.
+    for archivo in ("004_ciudades_bodegas.sql", "003_stock_odoo.sql"):
+        with open(os.path.join(RAIZ, "sql", "migrations", archivo), encoding="utf-8") as fh:
+            cur.execute(fh.read())
 
     # --- marcas y categorías ---
     marcas = {f["marca"] for f in proveedor} | {(i["marca"] or "SIN MARCA") for i in huerfanos}

@@ -1,0 +1,14 @@
+-- =============================================================================
+-- 004 — Corrige la ciudad de las bodegas de Valledupar
+-- =============================================================================
+-- La semilla original daba por hecho que A. OBRERO y A. CENTRO eran de Montería
+-- (probablemente por cercanía con A. MONTERIA en la lista). Son los DOS puntos
+-- de Valledupar, y con la ciudad mal el agente le decía al cliente que su cámara
+-- estaba en una ciudad a 8 horas de donde realmente está.
+--
+-- Fuentes: "TABLA DE SEDES.xlsx" (Cra. 12 #N 13B-02 Barrio Obrero / Cra. 11
+-- #16a-60 Centro, ambas Valledupar) y la dirección del almacén 01 en Odoo
+-- (res.partner: city=VALLEDUPAR, street=Carrera 12 13B-02).
+--
+-- Idempotente: se puede volver a correr sin efecto.
+UPDATE bodegas SET ciudad = 'Valledupar' WHERE codigo_bodega IN ('01', '03');

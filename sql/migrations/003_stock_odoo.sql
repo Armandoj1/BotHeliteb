@@ -95,11 +95,21 @@ WITH cruce AS (
            string_agg(DISTINCT ps.sku, ', ')                            AS sku_inventario,
            sum(e.cantidad) FILTER (WHERE e.tipo_bodega = 'sede')        AS uds_sedes,
            sum(e.cantidad) FILTER (WHERE e.tipo_bodega = 'central')     AS uds_central,
-           jsonb_object_agg(e.nombre_bodega, e.cantidad)
+           -- La etiqueta lleva la CIUDAD por delante. Con el nombre crudo de la
+           -- ubicación ("01/STOCK-A. OBRERO") el agente tenía que adivinar dónde
+           -- queda cada sede, y adivinaba mal: llegó a decir "Montería (sede
+           -- Obrero)" cuando Obrero es de Valledupar. Si la bodega no es una de
+           -- las 10 sucursales de venta (bodega central, CEDIS), no hay ciudad
+           -- que agregar y se deja el nombre tal cual.
+           jsonb_object_agg(
+               CASE WHEN b.ciudad IS NULL THEN e.nombre_bodega
+                    ELSE b.ciudad || ' - ' || replace(b.nombre_sucursal, 'STOCK-', '')
+               END, e.cantidad)
              FILTER (WHERE e.tipo_bodega IN ('sede', 'central') AND e.cantidad > 0) AS desglose
     FROM producto_stock ps
     JOIN stock_items       si ON si.sku = ps.sku
     LEFT JOIN stock_existencias e ON e.sku = ps.sku
+    LEFT JOIN bodegas      b  ON b.codigo_bodega = e.codigo_bodega
     GROUP BY ps.codigo_sap
 )
 SELECT p.codigo_sap,

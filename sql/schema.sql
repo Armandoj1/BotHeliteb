@@ -194,9 +194,14 @@ ORDER BY p.modelo, b.codigo_bodega;
 -- DATOS SEMILLA – Bodegas (extraído de los encabezados del Excel)
 -- -----------------------------------------------------------------------------
 
+-- OJO con Obrero y Centro: son los dos puntos de VALLEDUPAR (Barrio Obrero y
+-- Centro), no de Montería. El nombre no lo dice y es facil asumir mal; esta
+-- confirmado contra "TABLA DE SEDES.xlsx" (Cra. 12 #N 13B-02 Barrio Obrero y
+-- Cra. 11 #16a-60 Centro, ambas Valledupar) y contra la direccion del almacen
+-- 01 en Odoo (VALLEDUPAR, Carrera 12 13B-02).
 INSERT INTO bodegas (codigo_bodega, nombre_sucursal, ciudad) VALUES
-    ('01', 'STOCK-A. OBRERO',        'Montería'),
-    ('03', 'STOCK-A. CENTRO',        'Montería'),
+    ('01', 'STOCK-A. OBRERO',        'Valledupar'),
+    ('03', 'STOCK-A. CENTRO',        'Valledupar'),
     ('04', 'STOCK-A. MONTERIA',      'Montería'),
     ('08', 'STOCK-A. RIOHACHA',      'Riohacha'),
     ('09', 'STOCK-A. BARRANQUILLA',  'Barranquilla'),
