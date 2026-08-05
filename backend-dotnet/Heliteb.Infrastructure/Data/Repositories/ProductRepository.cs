@@ -75,13 +75,102 @@ public class ProductRepository : IProductQueries
         return rows;
     }
 
+    /// <summary>
+    /// Completa la disponibilidad real de una lista ya resuelta, con UNA sola consulta
+    /// extra a vista_disponibilidad. Se hace aquí y no dentro de cada SELECT porque el
+    /// repositorio tiene ~10 rutas de búsqueda distintas (exacta, filtrada, semántica,
+    /// por tipo, por IR, por canales...) y repetir el join en todas ellas es justo donde
+    /// se cuelan las inconsistencias.
+    ///
+    /// El stock NO se puede sumar por codigo_sap: en Odoo una sola ficha (SKU) puede
+    /// respaldar varias variantes de lente que el proveedor factura como códigos SAP
+    /// distintos. vista_disponibilidad ya resuelve eso vía la tabla puente producto_stock.
+    /// </summary>
+    private async Task<IReadOnlyList<ProductoDto>> ConDisponibilidadAsync(
+        IReadOnlyList<ProductoDto> productos, CancellationToken ct)
+    {
+        if (productos.Count == 0)
+        {
+            return productos;
+        }
+
+        const string sql = """
+            SELECT codigo_sap AS "CodigoSap", disponibilidad AS "Disponibilidad",
+                   uds_sedes AS "UdsSedes", uds_central AS "UdsCentral",
+                   variante_exacta AS "VarianteExacta", duplicado_odoo AS "DuplicadoOdoo",
+                   sku_inventario AS "SkuInventario", desglose::text AS "Desglose"
+            FROM vista_disponibilidad
+            WHERE codigo_sap = ANY(@Codigos)
+            """;
+
+        using var conn = _connectionFactory.Create();
+        var filas = await conn.QueryAsync<DisponibilidadRow>(
+            new CommandDefinition(sql, new { Codigos = productos.Select(p => p.CodigoSap).ToArray() },
+                                  cancellationToken: ct));
+
+        var porCodigo = filas.ToDictionary(f => f.CodigoSap, StringComparer.Ordinal);
+        foreach (var producto in productos)
+        {
+            if (!porCodigo.TryGetValue(producto.CodigoSap, out var fila))
+            {
+                continue;
+            }
+
+            producto.Disponibilidad = fila.Disponibilidad;
+            producto.UdsSedes = fila.UdsSedes;
+            producto.UdsCentral = fila.UdsCentral;
+            producto.VarianteExacta = fila.VarianteExacta;
+            producto.DuplicadoOdoo = fila.DuplicadoOdoo;
+            producto.SkuInventario = fila.SkuInventario;
+            producto.DondeHay = FormatearDesglose(fila.Desglose);
+        }
+        return productos;
+    }
+
+    private sealed class DisponibilidadRow
+    {
+        public string CodigoSap { get; set; } = null!;
+        public string? Disponibilidad { get; set; }
+        public decimal UdsSedes { get; set; }
+        public decimal UdsCentral { get; set; }
+        public bool VarianteExacta { get; set; }
+        public bool DuplicadoOdoo { get; set; }
+        public string? SkuInventario { get; set; }
+        public string? Desglose { get; set; }
+    }
+
+    /// <summary>El jsonb {"A. BOGOTA": 11} de la vista, a texto plano para el prompt.</summary>
+    private static string? FormatearDesglose(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            var partes = doc.RootElement.EnumerateObject()
+                .Select(p => $"{p.Name}: {p.Value}")
+                .ToList();
+            return partes.Count > 0 ? string.Join(", ", partes) : null;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
+
     private static readonly System.Text.RegularExpressions.Regex CodeLikeToken =
         new(@"^[A-Za-z0-9][A-Za-z0-9\-\./]{4,}$", System.Text.RegularExpressions.RegexOptions.Compiled);
 
     private static bool LooksLikeProductCode(string token) =>
         CodeLikeToken.IsMatch(token) && token.Any(char.IsDigit) && token.Any(char.IsLetter);
 
-    public async Task<IReadOnlyList<ProductoDto>> BuscarProductosAsync(string query, ProductoFiltros? filtros = null, int limit = 10, CancellationToken ct = default)
+    public async Task<IReadOnlyList<ProductoDto>> BuscarProductosAsync(string query, ProductoFiltros? filtros = null, int limit = 10, CancellationToken ct = default) =>
+        await ConDisponibilidadAsync(await BuscarProductosInternoAsync(query, filtros, limit, ct), ct);
+
+    private async Task<IReadOnlyList<ProductoDto>> BuscarProductosInternoAsync(string query, ProductoFiltros? filtros, int limit, CancellationToken ct)
     {
         // Si el usuario menciona un código/modelo concreto (ej. "DS-2CD1143G2-LIU" o un
         // código SAP), la coincidencia exacta es más confiable que la semántica para
@@ -604,18 +693,36 @@ public class ProductRepository : IProductQueries
         // que rompe un ILIKE literal aunque el producto sí tenga stock. Comparar tras
         // quitar todo lo que no sea letra/dígito hace el match tolerante a paréntesis,
         // espacios y puntos sin perder precisión (el código SAP ya es solo dígitos).
+        // Lee las existencias reales de Odoo (stock_existencias), no la tabla `inventario`:
+        // esa solo guarda las sedes con cruce exclusivo, y aquí sí queremos mostrar tambien
+        // la bodega central y las referencias cuyo SKU cubre varias variantes de lente.
+        // El match tambien acepta el SKU, porque el cliente muchas veces menciona el codigo
+        // corto que ve en la caja y no el modelo completo de la lista del proveedor.
         const string sql = """
-            SELECT codigo_sap AS "CodigoSap", marca AS "Marca", modelo AS "Modelo",
-                   codigo_bodega AS "CodigoBodega", nombre_sucursal AS "NombreSucursal", ciudad AS "Ciudad",
-                   cantidad_disponible AS "CantidadDisponible", precio_msrp_cop AS "PrecioMsrpCop"
-            FROM vista_stock
-            WHERE regexp_replace(modelo, '[^a-zA-Z0-9]', '', 'g') ILIKE '%' || regexp_replace(@Query, '[^a-zA-Z0-9]', '', 'g') || '%'
-               OR codigo_sap ILIKE @Pattern
-            ORDER BY modelo, codigo_bodega
+            SELECT p.codigo_sap AS "CodigoSap", m.nombre AS "Marca", p.modelo AS "Modelo",
+                   e.codigo_bodega AS "CodigoBodega", e.nombre_bodega AS "NombreSucursal",
+                   b.ciudad AS "Ciudad", e.cantidad::int AS "CantidadDisponible",
+                   pr.precio_msrp_cop AS "PrecioMsrpCop", e.tipo_bodega AS "TipoBodega",
+                   ps.exclusivo AS "VarianteExacta"
+            FROM producto_stock ps
+            JOIN stock_items       si ON si.sku = ps.sku
+            JOIN stock_existencias e  ON e.sku  = ps.sku
+            JOIN productos         p  ON p.codigo_sap = ps.codigo_sap
+            JOIN marcas            m  ON m.id_marca   = p.id_marca
+            LEFT JOIN precios      pr ON pr.codigo_sap = p.codigo_sap
+            LEFT JOIN bodegas      b  ON b.codigo_bodega = e.codigo_bodega
+            WHERE e.cantidad > 0
+              AND e.tipo_bodega IN ('sede', 'central')
+              AND (regexp_replace(p.modelo, '[^a-zA-Z0-9]', '', 'g') ILIKE '%' || regexp_replace(@Query, '[^a-zA-Z0-9]', '', 'g') || '%'
+                   OR regexp_replace(si.sku, '[^a-zA-Z0-9]', '', 'g') ILIKE '%' || regexp_replace(@Query, '[^a-zA-Z0-9]', '', 'g') || '%'
+                   OR p.codigo_sap ILIKE @Pattern)
+            ORDER BY e.tipo_bodega, p.modelo, e.cantidad DESC
             """;
 
         using var conn = _connectionFactory.Create();
-        return (await conn.QueryAsync<StockDto>(sql, new { Query = query, Pattern = $"%{query}%" })).AsList();
+        return (await conn.QueryAsync<StockDto>(
+            new CommandDefinition(sql, new { Query = query, Pattern = $"%{query}%" },
+                                  cancellationToken: ct))).AsList();
     }
 
     public async Task<IReadOnlyList<ProductoDto>> VentasCruzadasAsync(string query, int limit = 5, CancellationToken ct = default)
@@ -646,7 +753,7 @@ public class ProductRepository : IProductQueries
         {
             p.ImagenUrl = CloudinaryImageBase + p.CodigoSap;
         }
-        return rows;
+        return await ConDisponibilidadAsync(rows, ct);
     }
 
     public async Task<ProductoDto?> GetByCodigoSapAsync(string codigoSap, CancellationToken ct = default)
@@ -667,6 +774,7 @@ public class ProductRepository : IProductQueries
         if (p is not null)
         {
             p.ImagenUrl = CloudinaryImageBase + p.CodigoSap;
+            await ConDisponibilidadAsync(new[] { p }, ct);
         }
         return p;
     }

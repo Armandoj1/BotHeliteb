@@ -10,4 +10,10 @@ public class StockDto
     public string? Ciudad { get; set; }
     public int CantidadDisponible { get; set; }
     public decimal? PrecioMsrpCop { get; set; }
+
+    /// <summary>'sede' (mostrador, entrega inmediata) o 'central' (requiere traslado).</summary>
+    public string? TipoBodega { get; set; }
+
+    /// <summary>FALSE si el inventario no distingue esta variante de lente de sus hermanas.</summary>
+    public bool VarianteExacta { get; set; } = true;
 }
