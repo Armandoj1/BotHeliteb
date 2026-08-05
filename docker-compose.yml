@@ -54,6 +54,9 @@ services:
       Webhook__KommoSharedSecret: "${KOMMO_WEBHOOK_SHARED_SECRET}"
       Webhook__N8nSyncSecret: "${N8N_SYNC_SECRET}"
       Jwt__SigningKey: "${JWT_SIGNING_KEY}"
+      # Clave de la API máquina-a-máquina del agente (POST /api/agente/mensaje).
+      # Si se deja vacía, ese endpoint responde 503 y no atiende a nadie.
+      Agente__ApiKey: "${AGENT_API_KEY}"
       # Origen(es) del panel permitidos por CORS (separados por coma si hay más
       # de uno). El valor por defecto coincide con el panel local vía Docker;
       # en producción, .env define el dominio real (ver .env.example).
