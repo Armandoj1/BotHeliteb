@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using Heliteb.Application.Abstractions;
 using Heliteb.Application.Agent;
@@ -163,8 +164,19 @@ public class AgentOrchestrator : IAgentOrchestrator
 
                 foreach (Match m in PrecioEnHerramientaPattern.Matches(resultJson))
                 {
-                    if (decimal.TryParse(m.Groups[1].Value, out var precio))
+                    // InvariantCulture a proposito: el JSON siempre trae el punto como
+                    // separador decimal, y en una cultura con coma decimal "209129.52"
+                    // se leeria como 20912952.
+                    if (decimal.TryParse(m.Groups[1].Value, NumberStyles.Number,
+                                         CultureInfo.InvariantCulture, out var precio))
                     {
+                        // Se guardan el piso Y el redondeo. 32 precios del catalogo
+                        // (los de EZVIZ, que salen de una division) traen centavos >=
+                        // 0.50: al escribirlos, el texto muestra la parte entera
+                        // ($209.129) pero Math.Round daba 209130, asi que el precio
+                        // REAL quedaba marcado como inventado. El resultado que veia
+                        // el cliente era "(precio pendiente de confirmar),52 COP".
+                        preciosVistosEsteTurno.Add((long)Math.Floor(precio));
                         preciosVistosEsteTurno.Add((long)Math.Round(precio));
                     }
                 }
