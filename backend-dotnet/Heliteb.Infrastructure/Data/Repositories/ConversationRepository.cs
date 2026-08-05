@@ -112,19 +112,26 @@ public class ConversationRepository : IConversationStore
 
         // Pagina 1 = mensajes mas recientes; dentro de cada pagina se devuelve en
         // orden cronologico ascendente para poder renderizar el hilo directo.
+        //
+        // Solo 'user' y 'assistant': las filas 'tool' son el detalle interno de las
+        // llamadas del agente (`buscar_productos: {"Success":true,...}`) y en el
+        // visor del panel se veian como mensajes sueltos con JSON crudo. Mismo
+        // criterio que ya usa el preview del listado y /api/chat/history.
         var items = (await conn.QueryAsync<ConversationMessage>("""
             SELECT * FROM (
                 SELECT id AS "Id", telefono AS "Telefono", generacion AS "Generacion",
                        role AS "Role", content AS "Content", created_at AS "CreatedAt"
                 FROM conversacion_mensaje
-                WHERE telefono = @Telefono
+                WHERE telefono = @Telefono AND role IN ('user', 'assistant')
                 ORDER BY id DESC
                 LIMIT @PageSize OFFSET @Offset
             ) sub ORDER BY "Id" ASC
             """, new { Telefono = telefono, PageSize = pageSize, Offset = offset })).AsList();
 
-        var total = await conn.ExecuteScalarAsync<int>(
-            "SELECT COUNT(*) FROM conversacion_mensaje WHERE telefono = @Telefono", new { Telefono = telefono });
+        var total = await conn.ExecuteScalarAsync<int>("""
+            SELECT COUNT(*) FROM conversacion_mensaje
+            WHERE telefono = @Telefono AND role IN ('user', 'assistant')
+            """, new { Telefono = telefono });
 
         return new PagedResult<ConversationMessage> { Items = items, Page = page, PageSize = pageSize, Total = total };
     }

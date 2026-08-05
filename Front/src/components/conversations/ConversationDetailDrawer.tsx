@@ -1,9 +1,13 @@
-import { Badge, Button, Drawer, Separator } from '@/components/ui';
+import { MessagesSquare } from 'lucide-react';
+
+import { AsyncBoundary } from '@/components/common/AsyncBoundary';
+import { Badge, Button, Drawer, EmptyState, Separator, Skeleton } from '@/components/ui';
 import {
   CONVERSATION_STATUS_LABELS,
   CONVERSATION_STATUS_TONES,
   describeSentiment,
 } from '@/features/conversations/labels';
+import { useConversationMessages } from '@/features/conversations/hooks/useConversationMessages';
 import type { IConversation } from '@/types';
 import { formatRelativeTime } from '@/utils/format-date';
 import { ChannelIcon } from './ChannelIcon';
@@ -19,6 +23,7 @@ export function ConversationDetailDrawer({
   onClose,
 }: IConversationDetailDrawerProps) {
   const sentiment = conversation ? describeSentiment(conversation.sentiment) : null;
+  const hilo = useConversationMessages(conversation?.id ?? null);
 
   return (
     <Drawer
@@ -30,14 +35,13 @@ export function ConversationDetailDrawer({
       description={conversation?.contactHandle}
       width="w-[min(32rem,94vw)]"
       footer={
-        <>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            Cerrar
-          </Button>
-          <Button variant="primary" size="sm">
-            Abrir en Chat
-          </Button>
-        </>
+        // Antes había aquí un "Abrir en Chat" sin onClick: no llevaba a ninguna
+        // parte. La pestaña Chat es el sandbox del asesor con el bot (su sesión
+        // se deriva del id de usuario), no el hilo del cliente, así que no hay
+        // a dónde "abrirlo" - el hilo se lee aquí mismo.
+        <Button variant="ghost" size="sm" onClick={onClose}>
+          Cerrar
+        </Button>
       }
     >
       {conversation ? (
@@ -91,7 +95,30 @@ export function ConversationDetailDrawer({
 
           <Separator />
 
-          <MessageThread messages={conversation.messages} className="flex-1 bg-surface-sunken/40" />
+          <div className="flex min-h-0 flex-1 flex-col bg-surface-sunken/40">
+            <AsyncBoundary
+              status={hilo.status}
+              error={hilo.error}
+              onRetry={hilo.reload}
+              skeleton={
+                <div className="flex flex-col gap-3 px-4 py-4">
+                  <Skeleton className="h-14 w-3/4 rounded-lg" />
+                  <Skeleton className="h-10 w-2/3 self-end rounded-lg" />
+                  <Skeleton className="h-20 w-4/5 rounded-lg" />
+                </div>
+              }
+            >
+              {hilo.data && hilo.data.length > 0 ? (
+                <MessageThread messages={hilo.data} className="flex-1" />
+              ) : (
+                <EmptyState
+                  icon={MessagesSquare}
+                  title="Sin mensajes"
+                  description="Esta conversación no tiene mensajes guardados todavía."
+                />
+              )}
+            </AsyncBoundary>
+          </div>
         </div>
       ) : null}
     </Drawer>

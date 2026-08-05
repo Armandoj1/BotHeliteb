@@ -19,7 +19,7 @@ export function ConversationsPanel() {
     <>
       <ListScreen
         title="Conversaciones"
-        description="Conversaciones de WhatsApp con tus clientes. Filtra, revisa el hilo completo y detecta escalamientos a tiempo."
+        description="Conversaciones del agente con tus clientes por WhatsApp. Filtra por canal para separar las pruebas internas del panel. Haz clic en una fila para leer el hilo completo."
         headerActions={
           state.unreadTotal > 0 ? (
             <Badge tone="primary" size="md" withDot>

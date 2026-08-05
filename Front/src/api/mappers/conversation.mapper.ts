@@ -25,19 +25,33 @@ export function toMessage(mensaje: IApiMensaje, index: number, telefono: string)
 }
 
 /**
- * Every conversation in this backend arrives through WhatsApp and is keyed by
- * phone number. Status, assignment and sentiment do not exist upstream, so they
- * are derived from what the data actually supports rather than invented.
+ * El backend guarda TODA sesión del agente en la misma tabla, con la columna
+ * `telefono` como llave: las de WhatsApp traen el número del cliente, pero las
+ * del chat interno del panel y las del comparador de IA traen un identificador
+ * sintético (`panel-web-3`, `cmp-ollama-a1b2`). Un número real es solo dígitos,
+ * así que eso distingue el canal de verdad — antes se marcaba todo como
+ * WhatsApp y las pruebas internas aparecían como si fueran clientes.
+ */
+export function isWhatsAppSession(telefono: string): boolean {
+  return /^\d{7,15}$/.test(telefono.trim());
+}
+
+/**
+ * Status, assignment and sentiment do not exist upstream, so they are derived
+ * from what the data actually supports rather than invented.
  */
 export function toConversation(summary: IApiConversationSummary): IConversation {
   const waitingOnUs = summary.ultimo_mensaje_role === 'user';
+  const esWhatsApp = isWhatsAppSession(summary.telefono);
 
   return {
     id: summary.telefono,
     reference: summary.telefono,
-    contactName: summary.nombre_contacto?.trim() || summary.telefono,
+    contactName:
+      summary.nombre_contacto?.trim() ||
+      (esWhatsApp ? summary.telefono : 'Prueba interna del panel'),
     contactHandle: summary.telefono,
-    channel: 'whatsapp',
+    channel: esWhatsApp ? 'whatsapp' : 'webchat',
     status: waitingOnUs ? 'pending' : 'open',
     assignedTo: 'Asistente',
     lastMessage: summary.ultimo_mensaje_preview ?? '',

@@ -8,6 +8,9 @@ import { isApiConfigured } from './transport';
 /** The inbox is paged upstream; the panel filters client-side over one page. */
 const PAGE_SIZE = 100;
 
+/** Page 1 of the transcript is the most recent stretch, in chronological order. */
+const MESSAGE_PAGE_SIZE = 200;
+
 export async function fetchConversations(): Promise<ResultType<IConversation[]>> {
   if (!isApiConfigured()) return { ok: true, value: [] };
 
@@ -27,12 +30,16 @@ export async function fetchConversations(): Promise<ResultType<IConversation[]>>
 export async function fetchConversationMessages(telefono: string): Promise<ResultType<IMessage[]>> {
   if (!isApiConfigured()) return { ok: true, value: [] };
 
-  const result = await httpClient.get<IApiMensaje[]>(ENDPOINTS.conversations.messages(telefono));
+  // El endpoint devuelve una página ({ items, page, page_size, total }), no un
+  // arreglo suelto. Estaba tipado como arreglo, así que el .map reventaba.
+  const result = await httpClient.get<IApiPagedResult<IApiMensaje>>(
+    `${ENDPOINTS.conversations.messages(telefono)}?page=1&pageSize=${MESSAGE_PAGE_SIZE}`,
+  );
   if (!result.ok) return result;
 
   return {
     ok: true,
-    value: (result.value ?? []).map((mensaje, index) => toMessage(mensaje, index, telefono)),
+    value: (result.value.items ?? []).map((mensaje, index) => toMessage(mensaje, index, telefono)),
   };
 }
 
