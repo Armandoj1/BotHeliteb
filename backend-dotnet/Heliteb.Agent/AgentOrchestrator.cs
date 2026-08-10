@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Heliteb.Application.Abstractions;
 using Heliteb.Application.Agent;
+using Microsoft.Extensions.Logging;
 
 namespace Heliteb.Agent;
 
@@ -43,9 +45,11 @@ public class AgentOrchestrator : IAgentOrchestrator
     private readonly ToolRegistry _tools;
     private readonly IAgentNotasRepository _notas;
     private readonly ILlmProviderSwitch _llmProviderSwitch;
+    private readonly ILogger<AgentOrchestrator> _logger;
 
-    public AgentOrchestrator(ILlmClient llm, IConversationStore conversations, ToolRegistry tools, IAgentNotasRepository notas, ILlmProviderSwitch llmProviderSwitch)
+    public AgentOrchestrator(ILlmClient llm, IConversationStore conversations, ToolRegistry tools, IAgentNotasRepository notas, ILlmProviderSwitch llmProviderSwitch, ILogger<AgentOrchestrator> logger)
     {
+        _logger = logger;
         _llm = llm;
         _conversations = conversations;
         _tools = tools;
@@ -116,9 +120,20 @@ public class AgentOrchestrator : IAgentOrchestrator
         var yaPidioCorreccionDePrecio = false;
         var intentosRespuestaVacia = 0;
 
+        // Instrumentacion del turno. Sin esto, "el bot tarda 30 segundos" no se
+        // puede atacar: hay que saber si se van en las llamadas al modelo, en las
+        // herramientas (BD + embeddings) o en cuantas vueltas da el bucle.
+        var cronoTurno = Stopwatch.StartNew();
+        var msEnLlm = 0L;
+        var msEnHerramientas = 0L;
+        var llamadasAlLlm = 0;
+
         for (var iteracion = 0; iteracion < MaxIterations; iteracion++)
         {
+            var cronoLlm = Stopwatch.StartNew();
             var completion = await _llm.CompleteAsync(messages, toolDefinitions, ct);
+            msEnLlm += cronoLlm.ElapsedMilliseconds;
+            llamadasAlLlm++;
 
             if (completion.ToolCalls.Count == 0)
             {
@@ -174,6 +189,11 @@ public class AgentOrchestrator : IAgentOrchestrator
 
                 var final = TruncateAtBoundary(seguro, MaxReplyLength);
                 await _conversations.AppendAsync(telefono, generacion, "assistant", final, ct);
+
+                _logger.LogInformation(
+                    "Turno resuelto en {TotalMs}ms: {Llamadas} llamadas al modelo ({LlmMs}ms), herramientas {ToolMs}ms, respuesta {Caracteres} caracteres.",
+                    cronoTurno.ElapsedMilliseconds, llamadasAlLlm, msEnLlm, msEnHerramientas, final.Length);
+
                 return final;
             }
 
@@ -189,10 +209,12 @@ public class AgentOrchestrator : IAgentOrchestrator
             // los resultados se anexan al historial en el ORDEN ORIGINAL en que el LLM
             // las pidio, no en el orden en que terminan, para que el historial quede
             // igual de determinista que antes.
+            var cronoHerramientas = Stopwatch.StartNew();
             var toolResultTasks = completion.ToolCalls
                 .Select(toolCall => ExecuteToolCallAsync(toolCall, telefono, ct))
                 .ToArray();
             await Task.WhenAll(toolResultTasks);
+            msEnHerramientas += cronoHerramientas.ElapsedMilliseconds;
 
             for (var i = 0; i < completion.ToolCalls.Count; i++)
             {
