@@ -92,7 +92,8 @@ public static class DependencyInjection
         // la vez sin importar cuál esté "activo" en ILlmProviderSwitch.
         services.AddScoped(sp => new DeepSeekClient(
             sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(DeepSeekClient)), deepSeekOptions,
-            sp.GetRequiredService<IAppConfigStore>()));
+            sp.GetRequiredService<IAppConfigStore>(),
+            sp.GetRequiredService<ILogger<DeepSeekClient>>()));
         services.AddScoped(sp => new GroqClient(
             sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(GroqClient)), groqOptions,
             sp.GetRequiredService<IAppConfigStore>()));

@@ -40,7 +40,9 @@ export function SettingsSection({
         }}
         noValidate
       >
-        <div className="grid gap-4 px-5 pb-5 sm:grid-cols-2">{children}</div>
+        {/* Se suman columnas en vez de estirar los campos: en un monitor ancho, un
+            input de 900px para "Zona horaria" se ve peor que tres columnas llenas. */}
+        <div className="grid gap-4 px-5 pb-5 sm:grid-cols-2 xl:grid-cols-3">{children}</div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-surface-sunken/60 px-5 py-3.5">
           <div className="text-[12px] text-subtle" aria-live="polite">

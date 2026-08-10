@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useSessionUser } from '@/hooks/useSessionUser';
 import { useToast } from '@/hooks/useToast';
-import { buildSessionId, fetchChatHistory, sendChatMessage } from '@/services/chat.service';
+import {
+  buildSessionId,
+  fetchChatHistory,
+  sendChatFile,
+  sendChatMessage,
+} from '@/services/chat.service';
 import type { IMessage, RequestStatusType } from '@/types';
 
 export interface IChatState {
@@ -12,7 +17,7 @@ export interface IChatState {
   isSending: boolean;
   sessionId: string | null;
   reload: () => void;
-  send: (content: string) => Promise<void>;
+  send: (content: string, archivo?: File | null) => Promise<void>;
 }
 
 /**
@@ -53,22 +58,29 @@ export function useChat(): IChatState {
   }, [reload]);
 
   const send = useCallback(
-    async (content: string) => {
+    async (content: string, archivo?: File | null) => {
       if (!sessionId) return;
 
       // Echoed immediately: the agent can take seconds, and a message that
-      // vanishes until the reply lands feels broken.
+      // vanishes until the reply lands feels broken. Con adjunto se muestra el
+      // nombre del archivo, que es lo que el asesor acaba de "decir".
+      const eco = archivo
+        ? [content.trim(), `📎 ${archivo.name}`].filter(Boolean).join('\n')
+        : content;
+
       const own: IMessage = {
         id: `${sessionId}-own-${Date.now()}`,
         author: 'user',
         authorName: 'Tú',
-        content,
+        content: eco,
         createdAt: new Date().toISOString(),
       };
       setMessages((current) => [...current, own]);
 
       setIsSending(true);
-      const result = await sendChatMessage(sessionId, content);
+      const result = archivo
+        ? await sendChatFile(sessionId, archivo, content)
+        : await sendChatMessage(sessionId, content);
       setIsSending(false);
 
       if (!result.ok) {

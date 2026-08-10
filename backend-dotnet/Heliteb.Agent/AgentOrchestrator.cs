@@ -18,6 +18,10 @@ public class AgentOrchestrator : IAgentOrchestrator
     private const int MaxIterations = 14;
     private const int ContextWindowTurns = 6;
 
+    /// <summary>Reintentos cuando el modelo devuelve una respuesta vacía por corte
+    /// de longitud. Más de dos es quemar tiempo del asesor para acabar igual.</summary>
+    private const int MaxIntentosRespuestaVacia = 2;
+
     // WhatsApp acepta mensajes de hasta ~65k caracteres; este límite es solo para
     // evitar respuestas eternas, no una restricción técnica real. Una respuesta que
     // arma un sistema completo (cámaras + grabador + alternativas) puede necesitar
@@ -100,6 +104,7 @@ public class AgentOrchestrator : IAgentOrchestrator
         var toolDefinitions = _tools.BuildDefinitions();
         var preciosVistosEsteTurno = new HashSet<long>();
         var yaPidioCorreccionDePrecio = false;
+        var intentosRespuestaVacia = 0;
 
         for (var iteracion = 0; iteracion < MaxIterations; iteracion++)
         {
@@ -108,6 +113,31 @@ public class AgentOrchestrator : IAgentOrchestrator
             if (completion.ToolCalls.Count == 0)
             {
                 var normalizado = WhatsAppFormatNormalizer.Normalize((completion.Content ?? string.Empty).Trim());
+
+                // Un turno sin tool_calls Y sin texto no es una respuesta: es el
+                // modelo quedandose mudo. La causa medida (ver el log de
+                // finish_reason en DeepSeekClient) es que la generacion se corta por
+                // max_tokens antes de emitir nada util - pasa con preguntas que
+                // piden varios productos a la vez, como un documento de requisitos.
+                // Devolverlo tal cual dejaba una burbuja vacia en el chat.
+                //
+                // Se le insiste pidiendo BREVEDAD, que ataca la causa real. Con tope
+                // de 2 intentos: sin tope se gastaban las 14 iteraciones enteras
+                // (~230s de espera) para terminar igual en el fallback.
+                if (string.IsNullOrWhiteSpace(normalizado))
+                {
+                    if (++intentosRespuestaVacia > MaxIntentosRespuestaVacia)
+                    {
+                        break;
+                    }
+
+                    messages.Add(new LlmMessage
+                    {
+                        Role = LlmRole.User,
+                        Content = "[Verificacion automatica] Tu respuesta anterior llego vacia porque se corto por longitud. Responde AHORA, en menos de 15 lineas, usando solo los datos que ya obtuviste de las herramientas. No llames mas herramientas. Si el cliente pidio varios productos, resume cada uno en una linea (modelo, precio y disponibilidad) en vez de detallarlos.",
+                    });
+                    continue;
+                }
 
                 var preciosSinRespaldo = EncontrarPreciosSinRespaldo(normalizado, preciosVistosEsteTurno);
                 if (preciosSinRespaldo.Count > 0 && !yaPidioCorreccionDePrecio)
@@ -237,8 +267,20 @@ public class AgentOrchestrator : IAgentOrchestrator
 
     private static async Task<string> ExecuteToolAsync(IAgentTool tool, LlmToolCall toolCall, string telefono, CancellationToken ct)
     {
-        var result = await tool.ExecuteAsync(toolCall.ArgumentsJson, telefono, ct);
-        return System.Text.Json.JsonSerializer.Serialize(result);
+        try
+        {
+            var result = await tool.ExecuteAsync(toolCall.ArgumentsJson, telefono, ct);
+            return System.Text.Json.JsonSerializer.Serialize(result);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            // Los argumentos que manda el LLM son JSON generado token a token: si la
+            // respuesta se corta por max_tokens, llegan a medias ({"query":"camara
+            // exter) y cada herramienta reventaba al parsearlos, tumbando el turno
+            // entero con un 500. Se le devuelve el error AL MODELO para que reintente
+            // la llamada bien formada, que es justo para lo que sirve el bucle.
+            return """{"success":false,"error":"Los argumentos de la herramienta llegaron incompletos o mal formados. Vuelve a llamarla con un JSON valido y mas corto."}""";
+        }
     }
 
     private static LlmRole ParseRole(string role) => role switch

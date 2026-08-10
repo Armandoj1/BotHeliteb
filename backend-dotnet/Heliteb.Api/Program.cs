@@ -23,6 +23,8 @@ builder.Services.AddAgent();
 // "Comparar IA" (ver ComparacionChatController) - no interfiere con el switch
 // compartido que usa el bot real de WhatsApp.
 builder.Services.AddScoped<ComparacionAgentFactory>();
+// Extrae el texto de los documentos que el asesor adjunta en el chat del panel.
+builder.Services.AddSingleton<Heliteb.Api.Servicios.ExtractorTextoAdjunto>();
 
 // Logging minimo de cada request (metodo, path, status, duracion) sin headers ni
 // body - suficiente para diagnosticar en produccion sin depender de "docker compose

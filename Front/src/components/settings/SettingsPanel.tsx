@@ -25,7 +25,7 @@ export function SettingsPanel() {
         skeleton={
           <div className="space-y-4">
             <Skeleton shape="block" className="h-10 w-72" />
-            <Skeleton shape="block" className="h-[420px] max-w-3xl" />
+            <Skeleton shape="block" className="h-[420px]" />
           </div>
         }
       >
@@ -37,7 +37,11 @@ export function SettingsPanel() {
               <TabsTrigger value="notifications">Notificaciones</TabsTrigger>
             </TabsList>
 
-            <div className="max-w-3xl">
+            {/* Sin max-w: la pantalla es una consola de operaciones y dejaba media
+                pantalla vacía a la derecha. El ancho de cada campo lo controla la
+                grilla de SettingsSection, que agrega columnas en pantallas grandes
+                en vez de estirar dos inputs kilométricos. */}
+            <div>
               <TabsContent value="workspace">
                 <WorkspaceSettingsForm defaultValues={settings.data.workspace} />
               </TabsContent>

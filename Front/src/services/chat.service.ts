@@ -51,6 +51,51 @@ export async function fetchChatHistory(sessionId: string): Promise<ResultType<IM
   };
 }
 
+/** Formatos que el backend sabe leer (ver ExtractorTextoAdjunto). */
+export const EXTENSIONES_ADJUNTO = '.pdf,.txt,.md,.csv,.json,.xml,.log,.yml,.yaml,.htm,.html';
+export const MAX_BYTES_ADJUNTO = 10 * 1024 * 1024;
+
+/**
+ * Envía un documento con (o sin) mensaje. El backend extrae el texto y se lo
+ * pasa al agente: el modelo es de texto, no abre archivos. Por eso NO se aceptan
+ * imágenes — el asesor recibiría una respuesta inventada sobre algo que el
+ * modelo nunca vio.
+ */
+export async function sendChatFile(
+  sessionId: string,
+  archivo: File,
+  mensaje: string,
+): Promise<ResultType<IMessage>> {
+  if (!isApiConfigured()) return { ok: false, error: OFFLINE_ERROR };
+
+  if (archivo.size > MAX_BYTES_ADJUNTO) {
+    return { ok: false, error: 'El archivo supera los 10 MB.' };
+  }
+
+  const form = new FormData();
+  form.append('sessionId', sessionId);
+  form.append('mensaje', mensaje);
+  form.append('archivo', archivo);
+
+  const result = await httpClient.post<{ respuesta: string }>(
+    ENDPOINTS.chat.sendWithFile,
+    form,
+    { timeoutMs: AGENT_TIMEOUT_MS },
+  );
+  if (!result.ok) return result;
+
+  return {
+    ok: true,
+    value: {
+      id: `${sessionId}-${Date.now()}`,
+      author: 'assistant',
+      authorName: 'Asistente HelitebAI',
+      content: result.value.respuesta,
+      createdAt: new Date().toISOString(),
+    },
+  };
+}
+
 export async function sendChatMessage(
   sessionId: string,
   mensaje: string,

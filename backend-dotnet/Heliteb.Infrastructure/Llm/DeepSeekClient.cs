@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Heliteb.Application.Abstractions;
+using Microsoft.Extensions.Logging;
 
 namespace Heliteb.Infrastructure.Llm;
 
@@ -35,12 +36,15 @@ public class DeepSeekClient : ILlmClient
     private readonly HttpClient _http;
     private readonly DeepSeekOptions _options;
     private readonly IAppConfigStore _configStore;
+    private readonly ILogger<DeepSeekClient> _logger;
 
-    public DeepSeekClient(HttpClient http, DeepSeekOptions options, IAppConfigStore configStore)
+    public DeepSeekClient(
+        HttpClient http, DeepSeekOptions options, IAppConfigStore configStore, ILogger<DeepSeekClient> logger)
     {
         _http = http;
         _options = options;
         _configStore = configStore;
+        _logger = logger;
         _http.BaseAddress = new Uri(_options.BaseUrl);
     }
 
@@ -83,9 +87,21 @@ public class DeepSeekClient : ILlmClient
         }
 
         var body = await response.Content.ReadFromJsonAsync<JsonNode>(cancellationToken: ct);
-        var choice = body!["choices"]![0]!["message"]!;
+        var eleccion = body!["choices"]![0]!;
+        var choice = eleccion["message"]!;
 
         var content = choice["content"]?.GetValue<string>();
+
+        // finish_reason='length' significa que la respuesta se corto por MaxTokens.
+        // Sin este log, el sintoma que se ve arriba es una respuesta vacia o a
+        // medias sin ninguna pista de por que.
+        var razonFin = eleccion["finish_reason"]?.GetValue<string>();
+        if (razonFin == "length" || (string.IsNullOrWhiteSpace(content) && choice["tool_calls"] is null))
+        {
+            _logger.LogWarning(
+                "DeepSeek devolvio finish_reason={Razon} con {Caracteres} caracteres de contenido y sin tool_calls (max_tokens={MaxTokens}).",
+                razonFin, content?.Length ?? 0, _options.MaxTokens);
+        }
         var toolCalls = new List<LlmToolCall>();
         if (choice["tool_calls"] is JsonArray tcArray)
         {

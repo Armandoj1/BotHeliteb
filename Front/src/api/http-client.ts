@@ -34,16 +34,21 @@ export async function request<T>(
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const token = anonymous ? null : readToken();
 
+  // Un FormData (subida de archivos) se manda tal cual: serializarlo a JSON lo
+  // convertiría en "[object FormData]", y fijar Content-Type a mano rompe el
+  // multipart — el navegador tiene que ponerlo él para incluir el boundary.
+  const esFormData = body instanceof FormData;
+
   try {
     const response = await fetch(`${BASE_URL}${path}`, {
       ...init,
       signal: controller.signal,
       headers: {
-        'Content-Type': 'application/json',
+        ...(esFormData ? {} : { 'Content-Type': 'application/json' }),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...headers,
       },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : esFormData ? (body as FormData) : JSON.stringify(body),
     });
 
     // The API protects every route by default, so a 401 always means the session

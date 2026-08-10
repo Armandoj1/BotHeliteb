@@ -22,6 +22,7 @@ export const ENDPOINTS = {
   },
   chat: {
     send: '/api/chat',
+    sendWithFile: '/api/chat/adjunto',
     history: (sessionId: string) => `/api/chat/history?sessionId=${encodeURIComponent(sessionId)}`,
   },
   quotations: {
