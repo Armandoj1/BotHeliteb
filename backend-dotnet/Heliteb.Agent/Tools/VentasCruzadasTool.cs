@@ -27,6 +27,6 @@ public class VentasCruzadasTool : IAgentTool
         var query = doc.RootElement.GetProperty("query").GetString() ?? string.Empty;
 
         var resultados = await _productos.VentasCruzadasAsync(query, ct: ct);
-        return ToolResult.Ok(resultados);
+        return ToolResult.Ok(resultados.Select(ProductoParaAgente.Desde).ToList());
     }
 }

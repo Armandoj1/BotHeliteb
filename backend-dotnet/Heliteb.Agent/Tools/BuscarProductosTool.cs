@@ -69,7 +69,8 @@ public class BuscarProductosTool : IAgentTool
         };
 
         var resultados = await _productos.BuscarProductosAsync(query, filtros, ct: ct);
-        return ToolResult.Ok(resultados);
+        // Se recorta antes de mandárselo al modelo: ver ProductoParaAgente.
+        return ToolResult.Ok(resultados.Select(ProductoParaAgente.Desde).ToList());
     }
 
     private static string? LeerString(JsonElement root, string nombre) =>

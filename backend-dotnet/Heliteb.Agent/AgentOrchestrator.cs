@@ -22,6 +22,16 @@ public class AgentOrchestrator : IAgentOrchestrator
     /// de longitud. Más de dos es quemar tiempo del asesor para acabar igual.</summary>
     private const int MaxIntentosRespuestaVacia = 2;
 
+    /// <summary>
+    /// Los campos nulos no se serializan: `"UdsCentral":null,"SkuInventario":null`
+    /// son ~60 caracteres por producto que el modelo tiene que leer para nada, y a
+    /// 10 productos por búsqueda se notan en un contexto que ya va apretado.
+    /// </summary>
+    private static readonly System.Text.Json.JsonSerializerOptions JsonHerramientas = new()
+    {
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+    };
+
     // WhatsApp acepta mensajes de hasta ~65k caracteres; este límite es solo para
     // evitar respuestas eternas, no una restricción técnica real. Una respuesta que
     // arma un sistema completo (cámaras + grabador + alternativas) puede necesitar
@@ -270,7 +280,7 @@ public class AgentOrchestrator : IAgentOrchestrator
         try
         {
             var result = await tool.ExecuteAsync(toolCall.ArgumentsJson, telefono, ct);
-            return System.Text.Json.JsonSerializer.Serialize(result);
+            return System.Text.Json.JsonSerializer.Serialize(result, JsonHerramientas);
         }
         catch (System.Text.Json.JsonException)
         {
