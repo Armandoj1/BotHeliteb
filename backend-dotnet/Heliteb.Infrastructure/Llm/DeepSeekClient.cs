@@ -16,6 +16,14 @@ public class DeepSeekOptions
     public string Model { get; set; } = "deepseek-chat";
     public double Temperature { get; set; } = 0.3;
     public int MaxTokens { get; set; } = 512;
+
+    /// <summary>
+    /// Deja que el modelo "piense" antes de responder. Apagado por defecto: en este
+    /// agente el razonamiento se comía el 65% de los tokens generados y no mejoraba
+    /// la respuesta (ver el comentario en CompleteAsync). Se puede volver a
+    /// encender con DeepSeek:Thinking=true si alguna vez hace falta.
+    /// </summary>
+    public bool Thinking { get; set; }
 }
 
 /// <summary>Forma del JSON guardado en app_config.clave='deepseek'.</summary>
@@ -67,6 +75,20 @@ public class DeepSeekClient : ILlmClient
             ["max_tokens"] = _options.MaxTokens,
             ["messages"] = BuildMessagesArray(messages),
         };
+
+        // El razonamiento del modelo se cobra y se ESPERA como cualquier token de
+        // salida, pero el cliente nunca lo ve. Medido en un turno real de 31s:
+        // 2.126 de los 3.292 tokens generados (65%) eran razonamiento, y la salida
+        // se genera a ~80 tokens/s — o sea ~25 de esos 31 segundos.
+        //
+        // Apagarlo se probó contra la API antes de adoptarlo: misma llamada, 5,09s
+        // con razonamiento y 3,01s sin él, con una respuesta MÁS larga y útil (968
+        // vs 395 caracteres). Ojo: de las tres formas que se probaron, solo esta
+        // funciona — 'reasoning_effort' y 'enable_thinking' la API los ignora.
+        if (!_options.Thinking)
+        {
+            payload["thinking"] = new JsonObject { ["type"] = "disabled" };
+        }
 
         if (tools.Count > 0)
         {
