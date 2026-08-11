@@ -267,6 +267,48 @@ Checklist final:
 
 ## Mantenimiento
 
+### Cómo llega el código a producción
+
+Hay **dos caminos, y con uno basta**: cualquiera de los dos deja el servidor al día.
+
+1. **GitHub Actions** (`.github/workflows/deploy.yml`) entra por SSH al hacer push a
+   `main` y corre `scripts/deploy.sh`. Es la vía rápida: despliega en segundos.
+2. **`heliteb-autodeploy.timer`** en el servidor revisa `origin/main` cada 2 minutos
+   y despliega si hay algo nuevo (`scripts/autodeploy.sh`).
+
+El segundo existe porque el primero falla de forma intermitente: la conexión SSH
+desde los runners de GitHub muere con `dial tcp ...:22: i/o timeout` sin que llegue
+un solo paquete al servidor (sshd no registra el intento, `fail2ban` sin baneos,
+`ufw` con el 22 abierto y sesiones SSH desde otras redes funcionando al mismo
+tiempo). El corte está en la red entre GitHub y Hostinger. Con el timer, la
+conexión la abre el servidor —HTTPS saliente, que sí funciona siempre— y ningún
+commit se queda sin desplegar aunque Actions falle.
+
+`deploy.sh` toma un `flock`, así que si ambos coinciden, el segundo espera.
+
+```bash
+# ¿Se desplegó lo último?
+cd ~/heliteb && git log --oneline -1 && git fetch -q origin main && git log --oneline -1 origin/main
+
+# Ver la actividad del autodespliegue
+journalctl -u heliteb-autodeploy -n 30 --no-pager
+systemctl list-timers 'heliteb-*' --no-pager
+
+# Forzar un despliegue ya, sin esperar el turno
+systemctl start heliteb-autodeploy.service
+```
+
+### Refresco del inventario
+
+`heliteb-sync-stock.timer` revalida las existencias contra Odoo **cada hora**
+(`scripts/cargar_catalogo.py --solo-stock`). No toca productos ni precios: esos
+vienen del Excel del proveedor y se cargan a mano cuando llega una lista nueva.
+
+```bash
+journalctl -u heliteb-sync-stock -n 30 --no-pager
+systemctl start heliteb-sync-stock.service   # refrescar ahora mismo
+```
+
 **Ver logs en vivo:**
 ```bash
 docker compose logs -f
