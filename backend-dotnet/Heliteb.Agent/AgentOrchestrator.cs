@@ -72,7 +72,13 @@ public class AgentOrchestrator : IAgentOrchestrator
     // mencione contra los precios reales que SI salieron de una herramienta en este
     // turno (buscar_productos/verificar_stock/ventas_cruzadas).
     private static readonly Regex PrecioEnTextoPattern = new(@"\$\s?(\d{1,3}(?:\.\d{3})+)(?!\d)", RegexOptions.Compiled);
-    private static readonly Regex PrecioEnHerramientaPattern = new(@"""PrecioMsrpCop""\s*:\s*(\d+(?:\.\d+)?)", RegexOptions.Compiled);
+    // Acepta los DOS nombres a propósito: buscar_productos/ventas_cruzadas mandan
+    // "Precio" (ver ProductoParaAgente) y verificar_stock manda "PrecioMsrpCop".
+    // Cuando el recorte del payload renombró el campo y este patrón se quedó con el
+    // nombre viejo, dejó de reconocer TODOS los precios: el guardián los daba por
+    // inventados y el cliente recibía "(precio pendiente de confirmar)" en cada uno.
+    private static readonly Regex PrecioEnHerramientaPattern =
+        new(@"""(?:Precio|PrecioMsrpCop)""\s*:\s*(\d+(?:\.\d+)?)", RegexOptions.Compiled);
 
     public async Task<string> HandleMessageAsync(string telefono, string mensaje, string? contactName, CancellationToken ct = default)
     {
