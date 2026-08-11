@@ -81,6 +81,16 @@ public class AsesorRepository : IAsesorRepository
             new { Telefono = telefono, Nombre = nombre, Email = email });
     }
 
+    public async Task<Asesor?> GetByIdAsync(int id, CancellationToken ct = default)
+    {
+        using var conn = _connectionFactory.Create();
+        return await conn.QueryFirstOrDefaultAsync<Asesor>("""
+            SELECT id AS "Id", nombre AS "Nombre", email AS "Email", telefono AS "Telefono",
+                   password_hash AS "PasswordHash", rol AS "Rol", activo AS "Activo", created_at AS "CreatedAt"
+            FROM asesores WHERE id = @Id
+            """, new { Id = id });
+    }
+
     public async Task DeleteAsync(int id, CancellationToken ct = default)
     {
         using var conn = _connectionFactory.Create();

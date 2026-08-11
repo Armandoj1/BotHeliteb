@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
 import { useListModule, type IListModule } from '@/hooks/useListModule';
-import { createAdvisor, fetchAdvisors } from '@/services/advisor.service';
+import { createAdvisor, deleteAdvisor, fetchAdvisors } from '@/services/advisor.service';
 import type { CreateAdvisorFormType } from '@/schemas/advisor.schema';
 import type { AdvisorStatusType, IAdvisor, ResultType } from '@/types';
 import { matchesQuery } from '@/utils/collection';
@@ -25,6 +25,7 @@ export interface IAdvisorsState extends IListModule<IAdvisor, IAdvisorFilters> {
   create: (
     payload: CreateAdvisorFormType,
   ) => Promise<ResultType<{ advisor: IAdvisor; temporaryPassword: string }>>;
+  remove: (id: string) => Promise<ResultType<string>>;
 }
 
 export function useAdvisors(): IAdvisorsState {
@@ -46,5 +47,11 @@ export function useAdvisors(): IAdvisorsState {
     return result;
   };
 
-  return { ...list, onlineCount, create };
+  const remove = async (id: string) => {
+    const result = await deleteAdvisor(id);
+    if (result.ok) void list.resource.reload();
+    return result;
+  };
+
+  return { ...list, onlineCount, create, remove };
 }

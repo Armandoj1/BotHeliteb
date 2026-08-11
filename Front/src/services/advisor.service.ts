@@ -29,3 +29,15 @@ export async function createAdvisor(
     },
   };
 }
+
+/**
+ * Elimina la cuenta de un asesor. El backend rechaza borrarse a uno mismo y
+ * borrar al único administrador, así que aquí no se duplica esa lógica: se
+ * muestra el motivo que devuelva.
+ */
+export async function deleteAdvisor(id: string): Promise<ResultType<string>> {
+  const result = await httpClient.delete<{ ok: boolean }>(ENDPOINTS.advisors.remove(id));
+  if (!result.ok) return result;
+
+  return { ok: true, value: id };
+}

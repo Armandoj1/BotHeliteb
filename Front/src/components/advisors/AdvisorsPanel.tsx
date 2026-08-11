@@ -5,11 +5,13 @@ import { useState } from 'react';
 import { AsyncBoundary } from '@/components/common/AsyncBoundary';
 import { DataToolbar } from '@/components/common/DataToolbar';
 import { PageHeader } from '@/components/common/PageHeader';
-import { Badge, Button, EmptyState, Select, Skeleton } from '@/components/ui';
+import { Badge, Button, ConfirmDialog, EmptyState, Select, Skeleton } from '@/components/ui';
 import { useAdvisors } from '@/features/advisors/hooks/useAdvisors';
 import { ADVISOR_STATUS_OPTIONS } from '@/features/advisors/labels';
 import { useSessionUser } from '@/hooks/useSessionUser';
+import { useToast } from '@/hooks/useToast';
 import { staggerContainer } from '@/lib/motion';
+import type { IAdvisor } from '@/types';
 import { AdvisorCard } from './AdvisorCard';
 import { CreateAdvisorDialog } from './CreateAdvisorDialog';
 
@@ -20,8 +22,32 @@ export function AdvisorsPanel() {
   const state = useAdvisors();
   const { resource, query, filters } = state;
   const user = useSessionUser();
+  const toast = useToast();
   const isAdmin = user?.role === 'admin';
   const [createOpen, setCreateOpen] = useState(false);
+  const [porEliminar, setPorEliminar] = useState<IAdvisor | null>(null);
+  const [eliminando, setEliminando] = useState(false);
+
+  const confirmarEliminacion = async () => {
+    if (!porEliminar) return;
+
+    setEliminando(true);
+    const resultado = await state.remove(porEliminar.id);
+    setEliminando(false);
+
+    if (!resultado.ok) {
+      // El backend rechaza borrarse a uno mismo y borrar al único administrador;
+      // se muestra su motivo tal cual en vez de un error genérico.
+      toast.error({ title: 'No se pudo eliminar', description: resultado.error });
+      return;
+    }
+
+    toast.success({
+      title: 'Asesor eliminado',
+      description: `${porEliminar.name} ya no tiene acceso al panel.`,
+    });
+    setPorEliminar(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -109,14 +135,37 @@ export function AdvisorsPanel() {
             className={GRID_CLASSES}
           >
             {query.result.items.map((advisor) => (
-              <AdvisorCard key={advisor.id} advisor={advisor} />
+              <AdvisorCard
+                key={advisor.id}
+                advisor={advisor}
+                onDelete={isAdmin ? setPorEliminar : undefined}
+                esUnoMismo={advisor.id === user?.id}
+              />
             ))}
           </motion.div>
         )}
       </AsyncBoundary>
 
       {isAdmin ? (
-        <CreateAdvisorDialog open={createOpen} onOpenChange={setCreateOpen} onCreate={state.create} />
+        <>
+          <CreateAdvisorDialog open={createOpen} onOpenChange={setCreateOpen} onCreate={state.create} />
+
+          <ConfirmDialog
+            open={porEliminar !== null}
+            onOpenChange={(abierto) => {
+              if (!abierto) setPorEliminar(null);
+            }}
+            title={`¿Eliminar a ${porEliminar?.name ?? ''}?`}
+            description={
+              `Se borra la cuenta de ${porEliminar?.email ?? ''} y pierde el acceso al panel ` +
+              'de inmediato. Las cotizaciones que ya generó se conservan. Esto no se puede deshacer.'
+            }
+            confirmLabel="Eliminar cuenta"
+            destructive
+            isLoading={eliminando}
+            onConfirm={() => void confirmarEliminacion()}
+          />
+        </>
       ) : null}
     </div>
   );

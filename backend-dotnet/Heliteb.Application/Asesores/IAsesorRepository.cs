@@ -19,6 +19,8 @@ public interface IAsesorRepository
     /// <summary>Autoedicion del propio perfil - nunca cambia telefono (es la identidad de login/OTP).</summary>
     Task UpdateNombreEmailAsync(string telefono, string nombre, string email, CancellationToken ct = default);
 
+    Task<Asesor?> GetByIdAsync(int id, CancellationToken ct = default);
+
     Task DeleteAsync(int id, CancellationToken ct = default);
 
     Task<AsesorAuth?> GetAuthAsync(string telefono, CancellationToken ct = default);
