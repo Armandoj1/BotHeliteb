@@ -140,6 +140,29 @@ def leer_excel(ruta):
 # ---------------------------------------------------------------------------
 # Lectura de Odoo (en vivo o desde un snapshot ya extraído)
 # ---------------------------------------------------------------------------
+def leer_proveedor_desde_bd(dsn):
+    """Los productos del proveedor tal como ya están cargados en la BD del bot.
+
+    Para refrescar SOLO el stock no hace falta volver a leer el Excel: la lista de
+    precios cambia cada trimestre, pero las existencias cambian todos los días. El
+    cruce se rehace contra estos mismos códigos SAP y modelos.
+    """
+    conn = psycopg2.connect(dsn)
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT p.codigo_sap, p.modelo, m.nombre
+        FROM productos p JOIN marcas m ON m.id_marca = p.id_marca
+        WHERE p.origen = 'proveedor'
+    """)
+    filas = [dict(sap=sap, marca=marca, modelo=modelo, categoria=None, linea=None,
+                  serie=None, sub_serie=None, parametro_1=None, parametro_2=None,
+                  parametro_3=None, descripcion=None, etiqueta=None, msrp=None)
+             for sap, modelo, marca in cur.fetchall()]
+    cur.close()
+    conn.close()
+    return filas
+
+
 def leer_odoo(snapshot=None):
     if snapshot:
         with open(snapshot, encoding="utf-8") as fh:
@@ -147,18 +170,33 @@ def leer_odoo(snapshot=None):
     return extraer_de_odoo()
 
 
-def extraer_de_odoo():
-    import xmlrpc.client
+def _credenciales_odoo():
+    """Del entorno si están (así las pasa el servicio de systemd en el servidor),
+    y si no, de un archivo .env — que es como se trabaja en local."""
+    claves = ("ODOO_URL", "ODOO_DB", "ODOO_USER", "ODOO_PASSWORD")
+    if all(os.environ.get(k) for k in claves):
+        return {k: os.environ[k] for k in claves}
+
+    ruta_env = os.environ.get("ODOO_ENV")
+    if not ruta_env:
+        raise RuntimeError(
+            "Faltan las credenciales de Odoo: define ODOO_URL/ODOO_DB/ODOO_USER/"
+            "ODOO_PASSWORD en el entorno, o ODOO_ENV apuntando a un archivo .env.")
 
     cfg = {}
-    ruta_env = os.environ.get("ODOO_ENV", r"c:\Users\JoseArmando\Documents\odoo-mcp\mcp-server\.env")
     with open(ruta_env, encoding="utf-8") as fh:
         for linea in fh:
             linea = linea.strip()
             if linea and not linea.startswith("#") and "=" in linea:
                 clave, valor = linea.split("=", 1)
                 cfg[clave.strip()] = valor.strip()
+    return cfg
 
+
+def extraer_de_odoo():
+    import xmlrpc.client
+
+    cfg = _credenciales_odoo()
     url, base = cfg["ODOO_URL"], cfg["ODOO_DB"]
     usuario, clave = cfg["ODOO_USER"], cfg["ODOO_PASSWORD"]
     comun = xmlrpc.client.ServerProxy("%s/xmlrpc/2/common" % url, allow_none=True)
@@ -322,7 +360,7 @@ def construir(proveedor, odoo, alcance):
 # ---------------------------------------------------------------------------
 # Escritura en Postgres
 # ---------------------------------------------------------------------------
-def escribir(dsn, proveedor, items, huerfanos, info_por_nombre):
+def escribir(dsn, proveedor, items, huerfanos, info_por_nombre, solo_stock=False):
     conn = psycopg2.connect(dsn)
     conn.autocommit = False
     cur = conn.cursor()
@@ -333,6 +371,16 @@ def escribir(dsn, proveedor, items, huerfanos, info_por_nombre):
     for archivo in ("004_ciudades_bodegas.sql", "003_stock_odoo.sql"):
         with open(os.path.join(RAIZ, "sql", "migrations", archivo), encoding="utf-8") as fh:
             cur.execute(fh.read())
+
+    if solo_stock:
+        # Refresco horario: solo existencias y cruce. `productos` y `precios` no se
+        # tocan — vienen del Excel del proveedor y cambian cada trimestre, no cada
+        # hora, y reescribirlos sin el Excel a la vista los dejaría a medias.
+        n_exist, n_puente, n_inv = _escribir_stock(cur, proveedor, items, huerfanos, info_por_nombre)
+        conn.commit()
+        cur.close()
+        conn.close()
+        return n_exist, n_puente, n_inv
 
     # --- marcas y categorías ---
     marcas = {f["marca"] for f in proveedor} | {(i["marca"] or "SIN MARCA") for i in huerfanos}
@@ -384,7 +432,18 @@ def escribir(dsn, proveedor, items, huerfanos, info_por_nombre):
         """, [(i["sku"][:50], id_marca[i["marca"] or "SIN MARCA"], i["sku"][:100],
                i["nombre"]) for i in huerfanos], page_size=500)
 
-    # --- inventario real ---
+    n_exist, n_puente, n_inv = _escribir_stock(cur, proveedor, items, huerfanos, info_por_nombre)
+
+    conn.commit()
+    cur.close()
+    conn.close()
+    return n_exist, n_puente, n_inv
+
+
+def _escribir_stock(cur, proveedor, items, huerfanos, info_por_nombre):
+    """Existencias, cruce e inventario. Es lo único que cambia en el refresco
+    horario, así que vive aparte para que los dos modos usen exactamente el mismo
+    código y no se separen con el tiempo."""
     cur.execute("TRUNCATE stock_existencias, producto_stock")
     cur.execute("DELETE FROM stock_items")
 
@@ -442,9 +501,6 @@ def escribir(dsn, proveedor, items, huerfanos, info_por_nombre):
     """, [(sap, bod, int(cant)) for (sap, bod), cant in filas_inv.items() if cant > 0],
         page_size=500)
 
-    conn.commit()
-    cur.close()
-    conn.close()
     return len(filas_exist), len(puente), len(filas_inv)
 
 
@@ -463,12 +519,24 @@ def main():
                         help="b: solo el Excel del proveedor, HIKVISION+EZVIZ (por defecto) | "
                              "a: ademas el stock propio HIK/EZVIZ/HILOOK sin ficha | "
                              "c: ademas todo el stock de las demas marcas")
+    parser.add_argument("--solo-stock", action="store_true",
+                        help="refresca SOLO existencias desde Odoo (sin Excel). Es el modo "
+                             "del refresco horario: los productos y precios ya cargados no "
+                             "se tocan, porque la lista del proveedor cambia cada trimestre "
+                             "y el stock cambia todos los días.")
     parser.add_argument("--escribir", action="store_true", help="aplica los cambios")
     args = parser.parse_args()
 
-    proveedor, descartadas = leer_excel(args.xlsx)
-    print("Excel del proveedor: %d productos con SAP (%d filas descartadas)" % (
-        len(proveedor), descartadas))
+    if args.solo_stock:
+        if not args.dsn:
+            print("--solo-stock necesita --dsn (o HELITEB_DSN)", file=sys.stderr)
+            return 1
+        proveedor = leer_proveedor_desde_bd(args.dsn)
+        print("Catálogo ya cargado en la BD: %d productos del proveedor" % len(proveedor))
+    else:
+        proveedor, descartadas = leer_excel(args.xlsx)
+        print("Excel del proveedor: %d productos con SAP (%d filas descartadas)" % (
+            len(proveedor), descartadas))
 
     odoo = leer_odoo(args.snapshot)
     print("Odoo: %d fichas, %d existencias, %d ubicaciones internas" % (
@@ -519,9 +587,14 @@ def main():
         print("\nFalta --dsn (o la variable HELITEB_DSN)", file=sys.stderr)
         return 1
 
-    n_exist, n_puente, n_inv = escribir(args.dsn, proveedor, items, huerfanos, info_por_nombre)
-    print("\nESCRITO: %d productos, %d existencias, %d cruces, %d filas de inventario" % (
-        len(proveedor) + len(huerfanos), n_exist, n_puente, n_inv))
+    n_exist, n_puente, n_inv = escribir(args.dsn, proveedor, items, huerfanos, info_por_nombre,
+                                        solo_stock=args.solo_stock)
+    if args.solo_stock:
+        print("\nSTOCK ACTUALIZADO: %d existencias, %d cruces, %d filas de inventario"
+              % (n_exist, n_puente, n_inv))
+    else:
+        print("\nESCRITO: %d productos, %d existencias, %d cruces, %d filas de inventario" % (
+            len(proveedor) + len(huerfanos), n_exist, n_puente, n_inv))
     return 0
 
 
