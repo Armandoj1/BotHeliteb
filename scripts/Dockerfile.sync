@@ -1,0 +1,18 @@
+# Imagen del refresco de inventario. Existe para no instalar Python ni paquetes
+# en el servidor: el host es de contenedores y el ETL del tablero ya se ejecuta
+# así (systemd timer -> docker compose run --rm).
+FROM python:3.12-slim
+
+# psycopg2-binary evita tener que compilar contra libpq en la imagen.
+# openpyxl solo hace falta para la carga COMPLETA (la del Excel del proveedor);
+# se incluye para que la misma imagen sirva para las dos y no haya dos rutas.
+RUN pip install --no-cache-dir psycopg2-binary==2.9.10 openpyxl==3.1.5
+
+WORKDIR /app
+
+# El script calcula la raíz del proyecto como el padre de scripts/, y de ahí lee
+# sql/migrations. Se copia con esa misma forma para que funcione igual dentro.
+COPY scripts/cargar_catalogo.py scripts/cargar_catalogo.py
+COPY sql/migrations/ sql/migrations/
+
+ENTRYPOINT ["python", "-u", "scripts/cargar_catalogo.py"]

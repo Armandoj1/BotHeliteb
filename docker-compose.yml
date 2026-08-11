@@ -72,6 +72,31 @@ services:
       postgres:
         condition: service_healthy
 
+  # Refresco de inventario contra Odoo. No arranca con `docker compose up -d`:
+  # el perfil lo deja fuera y solo corre bajo demanda, que es como lo invoca el
+  # timer de systemd (heliteb-sync-stock.timer, cada hora).
+  #
+  #   docker compose run --rm sync-stock                    -> solo stock
+  #   docker compose run --rm sync-stock --alcance b --escribir
+  #        -v ./InformacionEmpresa:/app/InformacionEmpresa  -> carga completa
+  sync-stock:
+    profiles: ["manual"]
+    build:
+      context: .
+      dockerfile: scripts/Dockerfile.sync
+    container_name: heliteb_sync_stock
+    environment:
+      # Por la red de Docker, no por el puerto publicado en el host.
+      HELITEB_DSN: "postgresql://heliteb_user:${POSTGRES_PASSWORD:-Heliteb2026!}@postgres:5432/heliteb"
+      ODOO_URL: "${ODOO_URL:-https://odoo.heliteb.co}"
+      ODOO_DB: "${ODOO_DB}"
+      ODOO_USER: "${ODOO_USER}"
+      ODOO_PASSWORD: "${ODOO_PASSWORD}"
+    command: ["--solo-stock", "--escribir"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   heliteb-panel:
     build:
       # Panel Astro + React (ver Front/README.md), build estático servido por
