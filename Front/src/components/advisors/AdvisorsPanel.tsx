@@ -5,7 +5,15 @@ import { useState } from 'react';
 import { AsyncBoundary } from '@/components/common/AsyncBoundary';
 import { DataToolbar } from '@/components/common/DataToolbar';
 import { PageHeader } from '@/components/common/PageHeader';
-import { Badge, Button, ConfirmDialog, EmptyState, Select, Skeleton } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  ConfirmDialog,
+  EmptyState,
+  Select,
+  Skeleton,
+  TooltipProvider,
+} from '@/components/ui';
 import { useAdvisors } from '@/features/advisors/hooks/useAdvisors';
 import { ADVISOR_STATUS_OPTIONS } from '@/features/advisors/labels';
 import { useSessionUser } from '@/hooks/useSessionUser';
@@ -128,21 +136,26 @@ export function AdvisorsPanel() {
             }
           />
         ) : (
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            animate="visible"
-            className={GRID_CLASSES}
-          >
-            {query.result.items.map((advisor) => (
-              <AdvisorCard
-                key={advisor.id}
-                advisor={advisor}
-                onDelete={isAdmin ? setPorEliminar : undefined}
-                esUnoMismo={advisor.id === user?.id}
-              />
-            ))}
-          </motion.div>
+          // El proveedor es obligatorio para los <Tooltip> del botón de eliminar:
+          // sin él, Radix lanza una excepción y la isla entera queda en blanco —
+          // la página se veía vacía, sin buscador, sin botones y sin esqueleto.
+          <TooltipProvider delayDuration={280}>
+            <motion.div
+              variants={staggerContainer}
+              initial="hidden"
+              animate="visible"
+              className={GRID_CLASSES}
+            >
+              {query.result.items.map((advisor) => (
+                <AdvisorCard
+                  key={advisor.id}
+                  advisor={advisor}
+                  onDelete={isAdmin ? setPorEliminar : undefined}
+                  esUnoMismo={advisor.id === user?.id}
+                />
+              ))}
+            </motion.div>
+          </TooltipProvider>
         )}
       </AsyncBoundary>
 
