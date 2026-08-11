@@ -7,7 +7,13 @@ set -euo pipefail
 # en el bootstrap manual), para que nunca interfiera con git pull.
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BACKUPS_DIR="${HELITEB_BACKUPS_DIR:-$HOME/heliteb-backups}"
+
+# HOME puede no existir: systemd no lo define, y con `set -u` eso mataba el
+# script en esta línea ("HOME: unbound variable") cuando lo invoca el timer del
+# autodespliegue. Por SSH nunca se vio porque el shell de login sí lo define.
+# El respaldo debe quedar FUERA del working tree para no estorbarle a git pull,
+# así que el sustituto natural es el directorio padre del repo.
+BACKUPS_DIR="${HELITEB_BACKUPS_DIR:-${HOME:-$(dirname "$REPO_DIR")}/heliteb-backups}"
 
 cd "$REPO_DIR"
 mkdir -p "$BACKUPS_DIR"
