@@ -15,6 +15,18 @@ export interface IRequestOptions extends Omit<RequestInit, 'body'> {
 /** Raised to the app when the API rejects the stored token. */
 export const UNAUTHORIZED_ERROR = 'Tu sesión expiró. Vuelve a iniciar sesión.';
 
+/**
+ * Manda al login tras un 401. `replace` y no `assign` para que el botón "atrás"
+ * no devuelva a la pantalla rota. Si ya estamos en /login no hace nada, para no
+ * entrar en un bucle si el propio login contestara 401.
+ */
+function redirigirAlLogin(): void {
+  if (typeof window === 'undefined') return;
+  if (window.location.pathname.startsWith('/login')) return;
+
+  window.location.replace('/login');
+}
+
 function readToken(): string | null {
   const session = storage.get<{ token?: string } | null>(STORAGE_KEYS.SESSION, null);
   return session?.token ?? null;
@@ -53,8 +65,13 @@ export async function request<T>(
 
     // The API protects every route by default, so a 401 always means the session
     // is gone. Clearing it here keeps the guard from looping on a dead token.
+    //
+    // Y se manda al login de inmediato: antes solo se limpiaba la sesión y cada
+    // pantalla mostraba su propio "Tu sesión expiró" sobre el panel ya pintado,
+    // sin ninguna forma de volver a entrar salvo recargar a mano.
     if (response.status === 401 && !anonymous) {
       storage.remove(STORAGE_KEYS.SESSION);
+      redirigirAlLogin();
       return { ok: false, error: UNAUTHORIZED_ERROR };
     }
 

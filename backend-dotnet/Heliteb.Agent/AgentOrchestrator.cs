@@ -256,18 +256,43 @@ public class AgentOrchestrator : IAgentOrchestrator
         return fallback;
     }
 
+    /// <summary>Cantidades por las que un asesor multiplica un precio unitario al
+    /// cotizar. Más de 20 unidades ya es un proyecto y lo arma una cotización
+    /// formal, no una multiplicación en el chat.</summary>
+    private const int MaxUnidadesParaSubtotal = 20;
+
     private static List<string> EncontrarPreciosSinRespaldo(string respuesta, HashSet<long> preciosReales)
     {
         var sinRespaldo = new List<string>();
         foreach (Match m in PrecioEnTextoPattern.Matches(respuesta))
         {
             if (!long.TryParse(m.Groups[1].Value.Replace(".", ""), out var valor)) continue;
-            if (!preciosReales.Contains(valor))
-            {
-                sinRespaldo.Add(m.Value);
-            }
+            if (preciosReales.Contains(valor) || EsSubtotalDeUnPrecioReal(valor, preciosReales)) continue;
+
+            sinRespaldo.Add(m.Value);
         }
         return sinRespaldo;
+    }
+
+    /// <summary>
+    /// Un subtotal legítimo NO es un precio inventado. Cuando el cliente pide "4
+    /// cámaras", el agente multiplica el precio unitario, y el guardián marcaba ese
+    /// total como precio sin respaldo: disparaba la corrección y el cliente leía
+    /// "Tienes toda la razón, me equivoqué..." por una cuenta que estaba bien.
+    ///
+    /// Se acepta solo si es múltiplo EXACTO de un precio que sí salió de una
+    /// herramienta. Un precio inventado no cae por casualidad en un múltiplo
+    /// exacto de otro, así que la puerta que esto abre es mínima.
+    /// </summary>
+    private static bool EsSubtotalDeUnPrecioReal(long valor, HashSet<long> preciosReales)
+    {
+        foreach (var unitario in preciosReales)
+        {
+            if (unitario <= 0 || valor <= unitario) continue;
+            if (valor % unitario != 0) continue;
+            if (valor / unitario <= MaxUnidadesParaSubtotal) return true;
+        }
+        return false;
     }
 
     private static string ReemplazarPreciosSinRespaldo(string respuesta, List<string> preciosSinRespaldo)

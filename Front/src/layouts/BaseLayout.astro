@@ -53,9 +53,41 @@ const { title, description = 'Consola de operaciones asistidas por IA' } = Astro
           root.dataset.sidebar = read('heliteb:sidebar-collapsed', false) ? 'collapsed' : 'expanded';
         };
 
+        /*
+          Comprueba que el token siga VIGENTE, no solo que exista. Antes bastaba
+          con que hubiera algo en localStorage: se pintaba el panel entero, y solo
+          cuando el API contestaba 401 aparecía "Tu sesión expiró" con la pantalla
+          ya cargada y sin forma de entrar. Leyendo el 'exp' del propio JWT, una
+          sesión vencida manda al login antes del primer pintado.
+        */
+        const sesionVigente = () => {
+          const sesion = read('heliteb:session', null);
+          if (!sesion || typeof sesion.token !== 'string') return false;
+
+          try {
+            const base64 = sesion.token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+            const binario = atob(base64);
+            // TextDecoder y no atob a secas: el token lleva el nombre del asesor,
+            // que puede traer tildes, y atob solo devuelve bytes.
+            const bytes = Uint8Array.from(binario, (c) => c.charCodeAt(0));
+            const datos = JSON.parse(new TextDecoder().decode(bytes));
+
+            if (typeof datos.exp === 'number' && datos.exp * 1000 <= Date.now()) {
+              localStorage.removeItem('heliteb:session');
+              return false;
+            }
+          } catch {
+            // Token ilegible: se trata como sesión inválida, no como válida.
+            localStorage.removeItem('heliteb:session');
+            return false;
+          }
+
+          return true;
+        };
+
         const enforceSession = () => {
           const isPublicRoute = location.pathname.startsWith('/login');
-          const hasSession = read('heliteb:session', null) !== null;
+          const hasSession = sesionVigente();
 
           if (!hasSession && !isPublicRoute) location.replace('/login');
           else if (hasSession && isPublicRoute) location.replace('/');
