@@ -17,14 +17,47 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Tope de seguridad: una corrida colgada no debe ocupar el carril de
+    # despliegue indefinidamente (con la concurrencia en cola, bloquearía a las
+    # siguientes). Ya pasó: un despliegue se quedó 52 minutos abierto.
+    timeout-minutes: 40
     steps:
+      # El VPS a veces no acepta la conexión desde el runner de GitHub y el paso
+      # muere con "dial tcp ...:22: i/o timeout". Es intermitente: el mismo commit
+      # relanzado sin cambiar nada despliega bien, y el servidor en ese momento
+      # tiene ufw abierto en el 22, fail2ban sin baneos y sshd sin saturar. Como
+      # el problema está en la red entre GitHub y Hostinger, la única defensa
+      # razonable de este lado es reintentar en vez de dejar el commit sin
+      # desplegar y que nadie se entere.
       - name: Desplegar por SSH al VPS
+        id: desplegar
+        continue-on-error: true
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
+          # 30s de conexión se quedaba corto en los picos; el comando necesita
+          # margen porque reconstruye las imágenes del API y del panel.
+          timeout: 60s
+          command_timeout: 30m
+          script: |
+            cd ~/heliteb
+            bash scripts/deploy.sh
+
+      # deploy.sh es idempotente (git pull + docker compose up -d --build), así
+      # que repetirlo es seguro incluso si el primer intento alcanzó a avanzar.
+      - name: Reintentar el despliegue
+        if: steps.desplegar.outcome == 'failure'
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          timeout: 60s
+          command_timeout: 30m
           script: |
             cd ~/heliteb
             bash scripts/deploy.sh
