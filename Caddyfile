@@ -13,11 +13,23 @@
 #    `extra_hosts: ["host.docker.internal:host-gateway"]`, y apunta a los
 #    puertos que heliteb-panel/heliteb-api publican en el host:
 
+# OJO: en producción el Caddy real NO es este archivo — es /opt/n8n/Caddyfile en
+# el servidor, compartido con n8n, el tablero, compras y finanze. Estos bloques
+# ya están aplicados allá (respaldo: /opt/n8n/Caddyfile.bak-*). Si se cambia algo
+# aquí, hay que replicarlo a mano en ese archivo y recargar con:
+#   docker exec caddy caddy reload --config /etc/caddy/Caddyfile
+
 {$PANEL_DOMAIN} {
+	encode zstd gzip
 	reverse_proxy host.docker.internal:4321
 }
 
 {$API_DOMAIN} {
+	# Sin esto el catálogo viajaba en 4,6 MB de JSON sin comprimir y el panel se
+	# quedaba en el esqueleto de carga esperando la descarga. Comprimido son
+	# 368 KB: 12,5 veces menos. Medido, no estimado.
+	encode zstd gzip
+
 	# Lo usan tanto el navegador del panel (build estatico, PUBLIC_API_URL
 	# apunta aqui) como servicios externos (InboxCRM, Kommo, n8n) para los
 	# webhooks. Puerto 5090 (el publicado en el host por heliteb-api en
