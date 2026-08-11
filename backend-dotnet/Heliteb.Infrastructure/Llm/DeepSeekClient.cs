@@ -92,6 +92,22 @@ public class DeepSeekClient : ILlmClient
 
         var content = choice["content"]?.GetValue<string>();
 
+        // Desglose de tokens de CADA llamada. Es lo unico que explica el tiempo:
+        // medido contra la API, la entrada casi no cuesta (8.400 tokens = +0,5s)
+        // mientras que la salida se genera a ~75-90 tokens/s. Ademas deja ver si
+        // el cache de contexto de DeepSeek esta funcionando (cache_hit > 0) y
+        // cuantos tokens se van en razonamiento, que el cliente nunca ve.
+        var uso = body["usage"];
+        if (uso is not null)
+        {
+            _logger.LogInformation(
+                "DeepSeek: entrada={Entrada} (cache={Cache}) salida={Salida} razonamiento={Razonamiento}",
+                uso["prompt_tokens"]?.GetValue<int>() ?? 0,
+                uso["prompt_cache_hit_tokens"]?.GetValue<int>() ?? 0,
+                uso["completion_tokens"]?.GetValue<int>() ?? 0,
+                uso["completion_tokens_details"]?["reasoning_tokens"]?.GetValue<int>() ?? 0);
+        }
+
         // finish_reason='length' significa que la respuesta se corto por MaxTokens.
         // Sin este log, el sintoma que se ve arriba es una respuesta vacia o a
         // medias sin ninguna pista de por que.
