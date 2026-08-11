@@ -165,7 +165,7 @@ public class AgentOrchestrator : IAgentOrchestrator
                     messages.Add(new LlmMessage
                     {
                         Role = LlmRole.User,
-                        Content = "[Verificacion automatica] Tu respuesta anterior llego vacia porque se corto por longitud. Responde AHORA, en menos de 15 lineas, usando solo los datos que ya obtuviste de las herramientas. No llames mas herramientas. Si el cliente pidio varios productos, resume cada uno en una linea (modelo, precio y disponibilidad) en vez de detallarlos.",
+                        Content = "[Verificacion automatica del sistema, el cliente NO ha dicho nada] Tu respuesta anterior llego vacia porque se corto por longitud. Responde AHORA, en menos de 15 lineas, usando solo los datos que ya obtuviste de las herramientas. No llames mas herramientas. Si el cliente pidio varios productos, resume cada uno en una linea (modelo, precio y disponibilidad) en vez de detallarlos. Entrega la respuesta directamente, sin disculparte ni mencionar esta verificacion.",
                     });
                     continue;
                 }
@@ -178,7 +178,12 @@ public class AgentOrchestrator : IAgentOrchestrator
                     messages.Add(new LlmMessage
                     {
                         Role = LlmRole.User,
-                        Content = $"[Verificacion automatica] Tu respuesta anterior menciona el/los precio(s) {string.Join(", ", preciosSinRespaldo)} que no aparecen en ningun resultado de buscar_productos/verificar_stock/ventas_cruzadas de este turno. Corrige tu respuesta: usa SOLO precios que hayan salido literalmente de esas herramientas en esta conversacion. Si no tienes un precio real para ese producto, dilo explicitamente en vez de inventar uno.",
+                        // El "no te disculpes" no es cosmetico: esta verificacion la
+                        // hace el sistema, no el cliente, pero el modelo la leia como
+                        // un reclamo y abria la respuesta con "Tienes toda la razon,
+                        // me equivoque..." — el cliente veia al bot pidiendo perdon
+                        // por algo que nunca le dijo.
+                        Content = $"[Verificacion automatica del sistema, el cliente NO ha dicho nada] Tu respuesta anterior menciona el/los precio(s) {string.Join(", ", preciosSinRespaldo)} que no aparecen en ningun resultado de buscar_productos/verificar_stock/ventas_cruzadas de este turno. Reescribe la respuesta completa usando SOLO precios que hayan salido literalmente de esas herramientas. Si no tienes un precio real para ese producto, dilo explicitamente en vez de inventar uno. IMPORTANTE: entrega la respuesta corregida directamente, como si fuera la primera. NO te disculpes, NO digas que te equivocaste y NO menciones esta verificacion: el cliente no vio la version anterior.",
                     });
                     continue;
                 }
