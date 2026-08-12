@@ -8,11 +8,12 @@ namespace Heliteb.Application.Agent;
 /// </summary>
 public interface IAgentNotasRepository
 {
-    Task<IReadOnlyList<AgenteNota>> GetActivasAsync(CancellationToken ct = default);
+    /// <summary>Notas activas del canal indicado mas las que aplican a todos.</summary>
+    Task<IReadOnlyList<AgenteNota>> GetActivasAsync(string? canal = null, CancellationToken ct = default);
 
     Task<IReadOnlyList<AgenteNota>> ListAllAsync(CancellationToken ct = default);
 
-    Task<AgenteNota> CreateAsync(string contenido, CancellationToken ct = default);
+    Task<AgenteNota> CreateAsync(string contenido, string? canal = null, CancellationToken ct = default);
 
     Task SetActivoAsync(int id, bool activo, CancellationToken ct = default);
 

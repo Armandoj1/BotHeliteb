@@ -6,6 +6,13 @@ namespace Heliteb.Api.Controllers;
 public class CrearNotaRequest
 {
     public string Contenido { get; set; } = null!;
+
+    /// <summary>
+    /// "whatsapp" (cliente final), "escritorio" (asesor en el panel) o null para
+    /// los dos. Deja afinar al vendedor sin tocarle el comportamiento al
+    /// asistente interno, que es lo que se pidio desde el panel.
+    /// </summary>
+    public string? Canal { get; set; }
 }
 
 /// <summary>
@@ -27,9 +34,24 @@ public class AgentNotasController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> Listar(CancellationToken ct) => Ok(await _notas.ListAllAsync(ct));
 
+    private static readonly string[] CanalesValidos = { "whatsapp", "escritorio" };
+
     [HttpPost]
-    public async Task<IActionResult> Crear([FromBody] CrearNotaRequest request, CancellationToken ct) =>
-        Ok(await _notas.CreateAsync(request.Contenido, ct));
+    public async Task<IActionResult> Crear([FromBody] CrearNotaRequest request, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Contenido))
+        {
+            return BadRequest(new { ok = false, motivo = "El contenido es obligatorio." });
+        }
+
+        var canal = string.IsNullOrWhiteSpace(request.Canal) ? null : request.Canal.Trim().ToLowerInvariant();
+        if (canal is not null && !CanalesValidos.Contains(canal))
+        {
+            return BadRequest(new { ok = false, motivo = "canal debe ser 'whatsapp', 'escritorio' o venir vacio." });
+        }
+
+        return Ok(await _notas.CreateAsync(request.Contenido, canal, ct));
+    }
 
     [HttpPatch("{id:int}/desactivar")]
     public async Task<IActionResult> Desactivar(int id, CancellationToken ct)

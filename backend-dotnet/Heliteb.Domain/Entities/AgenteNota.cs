@@ -9,5 +9,12 @@ public class AgenteNota
     public int Id { get; set; }
     public string Contenido { get; set; } = null!;
     public bool Activo { get; set; } = true;
+
+    /// <summary>
+    /// Canal al que aplica la nota: "whatsapp" (cliente final por WhatsApp/CRM),
+    /// "escritorio" (asesor en el panel) o null para los dos. Permite afinar al
+    /// vendedor sin cambiarle el comportamiento al asistente interno.
+    /// </summary>
+    public string? Canal { get; set; }
     public DateTime CreatedAt { get; set; }
 }

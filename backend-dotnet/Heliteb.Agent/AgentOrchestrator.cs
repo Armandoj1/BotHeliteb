@@ -104,7 +104,7 @@ public class AgentOrchestrator : IAgentOrchestrator
         // cuentan contra el límite pero se descartan antes de re-enviarse al LLM.
         // Historial y notas no dependen entre sí, así que se piden en paralelo.
         var historialTask = _conversations.GetRecentAsync(telefono, generacion, ContextWindowTurns * 4, ct);
-        var notasTask = _notas.GetActivasAsync(ct);
+        var notasTask = _notas.GetActivasAsync(SystemPrompt.NormalizarCanal(canal), ct);
         await Task.WhenAll(historialTask, notasTask);
         var historial = historialTask.Result;
         var notasActivas = notasTask.Result;
