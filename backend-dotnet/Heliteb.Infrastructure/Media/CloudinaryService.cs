@@ -17,6 +17,18 @@ public class CloudinaryService : ICloudinaryService
 
     public CloudinaryService(CloudinaryOptions options)
     {
+        // Sin credenciales, el SDK construye una cuenta vacia y falla mucho mas
+        // tarde con un NullReferenceException dentro de UploadAsync, que no dice
+        // nada de la causa. Mejor decirlo aqui.
+        if (string.IsNullOrWhiteSpace(options.CloudName)
+            || string.IsNullOrWhiteSpace(options.ApiKey)
+            || string.IsNullOrWhiteSpace(options.ApiSecret))
+        {
+            throw new InvalidOperationException(
+                "Cloudinary no esta configurado: faltan Cloudinary:CloudName, Cloudinary:ApiKey " +
+                "o Cloudinary:ApiSecret. Sin eso no se pueden subir los PDF de las cotizaciones.");
+        }
+
         _cloudinary = new Cloudinary(new Account(options.CloudName, options.ApiKey, options.ApiSecret));
     }
 
@@ -41,6 +53,12 @@ public class CloudinaryService : ICloudinaryService
             Overwrite = true,
         };
         var result = await _cloudinary.UploadAsync(uploadParams, cancellationToken: ct);
+        if (result.SecureUrl is null)
+        {
+            throw new InvalidOperationException(
+                "Cloudinary rechazo la subida del PDF: " + (result.Error?.Message ?? "sin detalle"));
+        }
+
         return result.SecureUrl.ToString();
     }
 }

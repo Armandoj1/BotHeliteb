@@ -58,5 +58,17 @@ public class GenerarCotizacionTool : IAgentTool
         {
             return ToolResult.Fail(ex.Message);
         }
+        catch (Exception ex)
+        {
+            // Generar el PDF o subirlo puede fallar por configuracion o por un
+            // servicio externo caido. Antes la excepcion subia hasta el
+            // controlador y la peticion moria en 500: el cliente pedia su
+            // cotizacion y no recibia ni una palabra. Es preferible que el
+            // agente lo sepa y responda algo util.
+            return ToolResult.Fail(
+                "No se pudo generar el PDF de la cotizacion (" + ex.GetType().Name + "). " +
+                "Dile al cliente que un asesor se la hace llegar en unos minutos y sigue " +
+                "la conversacion con normalidad; no vuelvas a intentarlo en este turno.");
+        }
     }
 }
