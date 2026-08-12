@@ -1,5 +1,5 @@
 import type { IApiAgentNota } from '@/api/contracts';
-import type { IAgentNote } from '@/types';
+import type { AgentChannelType, IAgentNote } from '@/types';
 
 /** The API stores one free-text field; the first line doubles as the title. */
 function splitTitle(contenido: string): { title: string; content: string } {
@@ -21,8 +21,9 @@ export function toAgentNote(nota: IApiAgentNota): IAgentNote {
     id: String(nota.id),
     title,
     content,
-    // Every note in this API is injected globally into the system prompt.
-    scope: 'global',
+    // Una nota con canal solo se inyecta en ese canal; sin canal, en los dos.
+    scope: nota.canal ? 'channel' : 'global',
+    channel: (nota.canal as AgentChannelType | null | undefined) ?? null,
     status: nota.activo ? 'published' : 'draft',
     // No priority column upstream; the API returns them already ordered.
     priority: nota.id,

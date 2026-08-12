@@ -3,7 +3,11 @@ import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 
 import { Button, Dialog, FormField, Input, Select, Textarea } from '@/components/ui';
-import { NOTE_SCOPE_OPTIONS, NOTE_STATUS_OPTIONS } from '@/features/notes/labels';
+import {
+  AGENT_CHANNEL_OPTIONS,
+  NOTE_SCOPE_OPTIONS,
+  NOTE_STATUS_OPTIONS,
+} from '@/features/notes/labels';
 import { agentNoteSchema, type AgentNoteFormType } from '@/schemas/agent-note.schema';
 import type { IAgentNote } from '@/types';
 
@@ -11,6 +15,7 @@ const EMPTY_NOTE: AgentNoteFormType = {
   title: '',
   content: '',
   scope: 'global',
+  channel: null,
   status: 'draft',
   priority: 10,
 };
@@ -31,7 +36,7 @@ export function NoteEditorDialog({
   onClose,
   onSubmit,
 }: INoteEditorDialogProps) {
-  const { register, handleSubmit, control, reset, formState } = useForm<AgentNoteFormType>({
+  const { register, handleSubmit, control, reset, watch, formState } = useForm<AgentNoteFormType>({
     resolver: zodResolver(agentNoteSchema),
     defaultValues: EMPTY_NOTE,
     mode: 'onBlur',
@@ -47,12 +52,17 @@ export function NoteEditorDialog({
             title: note.title,
             content: note.content,
             scope: note.scope,
+            channel: note.channel,
             status: note.status,
             priority: note.priority,
           }
         : EMPTY_NOTE,
     );
   }, [open, note, reset]);
+
+  // El canal solo aplica al alcance "Por canal"; en los demas se oculta para no
+  // sugerir que la nota queda limitada cuando no lo esta.
+  const esPorCanal = watch('scope') === 'channel';
 
   const submit = handleSubmit(async (values) => {
     await onSubmit(values);
@@ -130,6 +140,30 @@ export function NoteEditorDialog({
             />
           )}
         </FormField>
+
+        {esPorCanal ? (
+          <FormField
+            label="Canal"
+            hint="Por WhatsApp el agente le vende al cliente; en el escritorio asiste al asesor."
+            error={formState.errors.channel?.message}
+          >
+            {({ id }) => (
+              <Controller
+                control={control}
+                name="channel"
+                render={({ field }) => (
+                  <Select
+                    id={id}
+                    value={field.value ?? ''}
+                    onValueChange={field.onChange}
+                    options={AGENT_CHANNEL_OPTIONS}
+                    aria-label="Canal al que aplica la nota"
+                  />
+                )}
+              />
+            )}
+          </FormField>
+        ) : null}
 
         <FormField label="Estado" error={formState.errors.status?.message}>
           {({ id }) => (

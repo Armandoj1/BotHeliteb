@@ -1,4 +1,4 @@
-import type { ISelectOption, NoteScopeType, NoteStatusType, ToneType } from '@/types';
+import type { AgentChannelType, ISelectOption, NoteScopeType, NoteStatusType, ToneType } from '@/types';
 
 export const NOTE_SCOPE_LABELS: Record<NoteScopeType, string> = {
   global: 'Global',
@@ -6,6 +6,24 @@ export const NOTE_SCOPE_LABELS: Record<NoteScopeType, string> = {
   product: 'Por producto',
   customer: 'Por cliente',
 };
+
+export const AGENT_CHANNEL_LABELS: Record<AgentChannelType, string> = {
+  whatsapp: 'WhatsApp — cliente',
+  escritorio: 'Escritorio — asesor',
+};
+
+export const AGENT_CHANNEL_OPTIONS: ISelectOption<AgentChannelType>[] = [
+  {
+    value: 'whatsapp',
+    label: AGENT_CHANNEL_LABELS.whatsapp,
+    description: 'Conversaciones del cliente final por WhatsApp o el CRM',
+  },
+  {
+    value: 'escritorio',
+    label: AGENT_CHANNEL_LABELS.escritorio,
+    description: 'Consultas del equipo desde el panel',
+  },
+];
 
 export const NOTE_STATUS_LABELS: Record<NoteStatusType, string> = {
   published: 'Publicada',

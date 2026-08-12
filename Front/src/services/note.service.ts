@@ -24,13 +24,15 @@ export async function saveAgentNote(
   noteId?: string,
 ): Promise<ResultType<IAgentNote>> {
   const contenido = toNotaContenido(values.title, values.content);
+  // Solo el alcance "Por canal" limita la nota; los demas la dejan para los dos.
+  const canal = values.scope === 'channel' ? (values.channel ?? null) : null;
 
   if (isApiConfigured() && !noteId) {
     const created = await writeResource<IApiAgentNota>(
       ENDPOINTS.notes.list,
       'post',
-      { contenido },
-      async () => ({ id: 0, contenido, activo: true, created_at: new Date().toISOString() }),
+      { contenido, canal },
+      async () => ({ id: 0, contenido, canal, activo: true, created_at: new Date().toISOString() }),
     );
     return created.ok ? { ok: true, value: toAgentNote(created.value) } : created;
   }
@@ -54,6 +56,7 @@ export async function saveAgentNote(
     ok: true,
     value: {
       id: noteId ?? createId('note'),
+      channel: canal,
       author: 'Panel',
       tags: [],
       updatedAt: new Date().toISOString(),

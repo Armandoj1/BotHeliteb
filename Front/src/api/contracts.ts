@@ -83,6 +83,8 @@ export interface IApiAgentNota {
   contenido: string;
   activo: boolean;
   created_at: string;
+  /** 'whatsapp' | 'escritorio', o null cuando la nota aplica a los dos. */
+  canal?: string | null;
 }
 
 export interface IApiMetrics {
