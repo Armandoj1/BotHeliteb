@@ -19,6 +19,14 @@ public class AgenteMensajeRequest
 
     /// <summary>Nombre del cliente, si el sistema que llama lo conoce. Opcional.</summary>
     public string? NombreContacto { get; set; }
+
+    /// <summary>
+    /// Quien esta del otro lado: "cliente" (el comprador final, p.ej. desde el CRM)
+    /// o "asesor" (alguien del equipo consultando). Con "cliente" el agente vende:
+    /// se presenta, indaga, recomienda y cotiza directo. Sin valor se comporta
+    /// como antes de existir este campo.
+    /// </summary>
+    public string? Canal { get; set; }
 }
 
 /// <summary>
@@ -77,7 +85,7 @@ public class AgenteApiController : ControllerBase
         }
 
         var respuesta = await _agente.HandleMessageAsync(
-            request.SessionId, request.Mensaje, request.NombreContacto, ct);
+            request.SessionId, request.Mensaje, request.NombreContacto, ct, request.Canal);
 
         return Ok(new { ok = true, session_id = request.SessionId, respuesta });
     }

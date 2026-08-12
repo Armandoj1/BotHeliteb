@@ -80,7 +80,7 @@ public class AgentOrchestrator : IAgentOrchestrator
     private static readonly Regex PrecioEnHerramientaPattern =
         new(@"""(?:Precio|PrecioMsrpCop)""\s*:\s*(\d+(?:\.\d+)?)", RegexOptions.Compiled);
 
-    public async Task<string> HandleMessageAsync(string telefono, string mensaje, string? contactName, CancellationToken ct = default)
+    public async Task<string> HandleMessageAsync(string telefono, string mensaje, string? contactName, CancellationToken ct = default, string? canal = null)
     {
         var comandoProveedor = CambiaProveedorPattern.Match(mensaje.Trim());
         if (comandoProveedor.Success)
@@ -111,7 +111,7 @@ public class AgentOrchestrator : IAgentOrchestrator
 
         var messages = new List<LlmMessage>
         {
-            new() { Role = LlmRole.System, Content = SystemPrompt.Build(telefono, notasActivas.Select(n => n.Contenido).ToList()) },
+            new() { Role = LlmRole.System, Content = SystemPrompt.Build(telefono, notasActivas.Select(n => n.Contenido).ToList(), canal) },
         };
         // Solo user/assistant se re-envían como historial: los mensajes "tool" se
         // guardan únicamente como bitácora (su tool_call_id no sobrevive entre
