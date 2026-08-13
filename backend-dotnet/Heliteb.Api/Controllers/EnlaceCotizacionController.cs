@@ -17,6 +17,9 @@ namespace Heliteb.Api.Controllers;
 [Route("c")]
 public class EnlaceCotizacionController : ControllerBase
 {
+    // Estatico a proposito: un HttpClient por peticion agota los sockets.
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(20) };
+
     private readonly CotizacionRepository _cotizaciones;
 
     public EnlaceCotizacionController(CotizacionRepository cotizaciones)
@@ -33,6 +36,26 @@ public class EnlaceCotizacionController : ControllerBase
             return NotFound();
         }
 
-        return Redirect(cotizacion.PdfUrl);
+        // Se entrega el archivo desde aqui en vez de redirigir: asi va con
+        // Content-Type de PDF y un nombre legible (redirigiendo llegaba como
+        // application/octet-stream sin extension y no abria), y Cloudinary no
+        // aparece ni siquiera en la barra de direcciones.
+        try
+        {
+            var bytes = await Http.GetByteArrayAsync(cotizacion.PdfUrl, ct);
+
+            // inline y no attachment: en el telefono, adjunto obliga a bajarlo y
+            // buscarlo en el gestor de descargas; asi se abre en el visor.
+            Response.Headers.ContentDisposition =
+                $"inline; filename=\"{cotizacion.Folio}.pdf\"";
+
+            return File(bytes, "application/pdf");
+        }
+        catch (Exception)
+        {
+            // Si el almacenamiento no responde, es preferible mandar al cliente
+            // al archivo original que dejarlo sin nada.
+            return Redirect(cotizacion.PdfUrl);
+        }
     }
 }

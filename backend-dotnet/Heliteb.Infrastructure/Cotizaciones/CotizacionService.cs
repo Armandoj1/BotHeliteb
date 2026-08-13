@@ -95,6 +95,9 @@ public class CotizacionService : ICotizacionService
         string pdfUrl;
         using (var stream = new MemoryStream(pdfBytes))
         {
+            // Sin extension a proposito: Cloudinary bloquea la entrega de PDF por
+            // defecto y responde 401 si el nombre termina en .pdf. El tipo y el
+            // nombre del archivo los pone el endpoint publico al entregarlo.
             pdfUrl = await _cloudinary.UploadRawAsync($"cotizaciones/{folio}", stream, ct);
         }
 

@@ -63,6 +63,11 @@ services:
       Cloudinary__CloudName: "${CLOUDINARY_CLOUD_NAME}"
       Cloudinary__ApiKey: "${CLOUDINARY_API_KEY}"
       Cloudinary__ApiSecret: "${CLOUDINARY_API_SECRET}"
+      # Correo saliente (cotizaciones al cliente). Gmail exige contrasena
+      # de aplicacion, no la de la cuenta. Sin esto el envio falla con 535
+      # y el agente le deja al cliente solo el enlace del PDF.
+      Smtp__User: "${SMTP_USER}"
+      Smtp__Password: "${SMTP_PASSWORD}"
       # Origen(es) del panel permitidos por CORS (separados por coma si hay más
       # de uno). El valor por defecto coincide con el panel local vía Docker;
       # en producción, .env define el dominio real (ver .env.example).
