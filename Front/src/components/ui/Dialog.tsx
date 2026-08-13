@@ -55,13 +55,16 @@ export function Dialog({
                 animate="visible"
                 exit="exit"
                 className={cn(
-                  'fixed left-1/2 top-1/2 z-50 w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2',
+                  'fixed left-1/2 top-1/2 z-50 flex w-[calc(100vw-2rem)] flex-col -translate-x-1/2 -translate-y-1/2',
+                  // Sin tope de altura, un formulario largo empuja el pie fuera
+                  // de la pantalla y deja el modal inservible.
+                  'max-h-[calc(100dvh-2rem)]',
                   'overflow-hidden rounded-xl border border-border bg-elevated shadow-xl focus:outline-none',
                   SIZE_CLASSES[size],
                   className,
                 )}
               >
-                <header className="flex items-start justify-between gap-4 px-5 pb-3 pt-5">
+                <header className="flex shrink-0 items-start justify-between gap-4 px-5 pb-3 pt-5">
                   <div className="min-w-0">
                     <DialogPrimitive.Title className="text-[15px] font-semibold text-foreground">
                       {title}
@@ -80,10 +83,14 @@ export function Dialog({
                   </DialogPrimitive.Close>
                 </header>
 
-                {children ? <div className="px-5 pb-5 text-[13px] text-muted">{children}</div> : null}
+                {children ? (
+                  <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 text-[13px] text-muted">
+                    {children}
+                  </div>
+                ) : null}
 
                 {footer ? (
-                  <div className="flex items-center justify-end gap-2 border-t border-border bg-surface-sunken/60 px-5 py-3.5">
+                  <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border bg-surface-sunken/60 px-5 py-3.5">
                     {footer}
                   </div>
                 ) : null}
