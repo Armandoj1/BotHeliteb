@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Heliteb.Application.Agent;
 using Heliteb.Application.Cotizaciones;
@@ -31,6 +32,9 @@ public class GenerarCotizacionTool : IAgentTool
         }
         """;
 
+    // El contenedor corre con cultura invariante y N0 saldria con coma de miles.
+    private static readonly CultureInfo Colombia = new("es-CO");
+
     public async Task<ToolResult> ExecuteAsync(string argumentsJson, string telefono, CancellationToken ct = default)
     {
         using var doc = JsonDocument.Parse(argumentsJson);
@@ -52,7 +56,23 @@ public class GenerarCotizacionTool : IAgentTool
         try
         {
             var resultado = await _cotizaciones.GenerarAsync(request, ct);
-            return ToolResult.Ok(resultado);
+
+            // Se devuelve el bloque ya redactado porque el modelo, al reescribir
+            // estos datos, escribia "(precio pendiente de confirmar)" teniendo el
+            // total, y le cambiaba el dominio al enlace. Copiar es fiable;
+            // reformatear no.
+            var mensaje =
+                $"📄 *Folio:* {resultado.Folio}\n" +
+                $"💰 *Total:* ${resultado.Total.ToString("N0", Colombia)} (IVA incluido)\n" +
+                $"🔗 {resultado.PdfUrl}";
+
+            return ToolResult.Ok(new
+            {
+                folio = resultado.Folio,
+                total = resultado.Total,
+                pdf_url = resultado.PdfUrl,
+                mensaje_para_cliente = mensaje,
+            });
         }
         catch (AsesorNoVerificadoException ex)
         {

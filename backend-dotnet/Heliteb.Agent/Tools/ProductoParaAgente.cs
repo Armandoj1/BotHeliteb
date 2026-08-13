@@ -47,6 +47,18 @@ public record ProductoParaAgente(
     /// literal "_x000D_", que llegaban tal cual al prompt.</summary>
     private static readonly Regex BasuraExcel = new(@"_x000D_|\s+", RegexOptions.Compiled);
 
+    private const decimal Iva = 0.19m;
+
+    /// <summary>
+    /// El precio de la lista es el mismo list_price de Odoo: SIN impuestos. Al
+    /// cliente final se le habla en el precio que paga, asi que se convierte
+    /// aqui, una sola vez, en vez de confiar en que el modelo lo multiplique.
+    /// El PDF no cambia: CotizacionService sigue calculando IVA sobre el
+    /// subtotal, y ambos numeros terminan cuadrando.
+    /// </summary>
+    private static decimal? ConIva(decimal? precioSinIva) =>
+        precioSinIva is null or 0 ? precioSinIva : Math.Round(precioSinIva.Value * (1 + Iva), 0);
+
     public static ProductoParaAgente Desde(ProductoDto p)
     {
         // SkuInventario solo importa cuando varias variantes comparten inventario:
@@ -61,7 +73,7 @@ public record ProductoParaAgente(
             p.Parametro1,
             p.Parametro2,
             Recortar(p.Descripcion),
-            p.PrecioMsrpCop,
+            ConIva(p.PrecioMsrpCop),
             p.StockTotal,
             p.Disponibilidad,
             p.UdsSedes,

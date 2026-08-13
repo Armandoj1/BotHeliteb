@@ -59,11 +59,28 @@ public class CotizacionService : ICotizacionService
         }
 
         var lineas = new List<CotizacionPdfLinea>();
+        var noResueltas = new List<string>();
         decimal subtotal = 0;
         foreach (var codigoSap in request.CodigosSap)
         {
             var producto = await _productos.GetByCodigoSapAsync(codigoSap, ct);
-            if (producto is null) continue;
+
+            if (producto is null)
+            {
+                // El agente conversa en modelo (CS-H6c-R105-1L3WF) y aqui se
+                // espera el SAP numerico (303103135). Antes se descartaba en
+                // silencio y salia una cotizacion en cero.
+                var candidatos = await _productos.BuscarProductosAsync(codigoSap, null, 5, ct);
+                producto = candidatos.FirstOrDefault(p =>
+                    string.Equals(p.Modelo, codigoSap, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(p.CodigoSap, codigoSap, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (producto is null)
+            {
+                noResueltas.Add(codigoSap);
+                continue;
+            }
 
             var precio = producto.PrecioMsrpCop ?? 0;
             lineas.Add(new CotizacionPdfLinea
@@ -75,6 +92,15 @@ public class CotizacionService : ICotizacionService
                 PrecioUnitario = precio,
             });
             subtotal += precio;
+        }
+
+        // Un documento con total cero es peor que no emitirlo: el cliente recibe
+        // folio y PDF de algo que no se puede honrar.
+        if (lineas.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "Ninguna referencia se pudo resolver en el catalogo: " +
+                string.Join(", ", noResueltas) + ". No se emite una cotizacion vacia.");
         }
 
         var iva = Math.Round(subtotal * 0.19m, 0);
