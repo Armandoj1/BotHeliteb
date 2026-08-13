@@ -18,11 +18,19 @@ public class CotizacionRepository
         using var conn = _connectionFactory.Create();
         return await conn.ExecuteScalarAsync<int>("""
             INSERT INTO cotizaciones
-                (folio, cliente, cliente_email, asesor, subtotal, iva, total, productos_count, productos_json, pdf_url)
+                (folio, cliente, cliente_email, asesor, subtotal, iva, total, productos_count, productos_json, pdf_url, token)
             VALUES
-                (@Folio, @Cliente, @ClienteEmail, @Asesor, @Subtotal, @Iva, @Total, @ProductosCount, @ProductosJson::jsonb, @PdfUrl)
+                (@Folio, @Cliente, @ClienteEmail, @Asesor, @Subtotal, @Iva, @Total, @ProductosCount, @ProductosJson::jsonb, @PdfUrl, @Token)
             RETURNING id
             """, cotizacion);
+    }
+
+    public async Task<Cotizacion?> GetByTokenAsync(string token, CancellationToken ct = default)
+    {
+        using var conn = _connectionFactory.Create();
+        return await conn.QueryFirstOrDefaultAsync<Cotizacion>(
+            """SELECT folio AS "Folio", pdf_url AS "PdfUrl", token AS "Token" FROM cotizaciones WHERE token = @Token""",
+            new { Token = token });
     }
 
     public async Task<Cotizacion?> GetByFolioAsync(string folio, CancellationToken ct = default)

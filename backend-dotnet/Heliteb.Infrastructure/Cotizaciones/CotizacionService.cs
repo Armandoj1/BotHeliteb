@@ -6,6 +6,8 @@ using Heliteb.Application.Cotizaciones;
 using Heliteb.Application.Cotizaciones.Dtos;
 using Heliteb.Domain.Entities;
 using Heliteb.Infrastructure.Data.Repositories;
+using Microsoft.Extensions.Configuration;
+using System.Security.Cryptography;
 
 namespace Heliteb.Infrastructure.Cotizaciones;
 
@@ -18,6 +20,12 @@ public class CotizacionService : ICotizacionService
     private readonly ICloudinaryService _cloudinary;
     private readonly IEmailService _email;
     private readonly IWhatsAppSender _whatsApp;
+    private readonly string _enlaceBase;
+
+    // Alfabeto sin caracteres que se confunden al dictar un enlace por telefono
+    // (0/O, 1/l/I). 12 caracteres dan de sobra para que no se pueda adivinar.
+    private const string AlfabetoToken = "abcdefghijkmnopqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ23456789";
+    private const int LargoToken = 12;
 
     public CotizacionService(
         CotizacionRepository repository,
@@ -26,8 +34,10 @@ public class CotizacionService : ICotizacionService
         IPdfService pdf,
         ICloudinaryService cloudinary,
         IEmailService email,
-        IWhatsAppSender whatsApp)
+        IWhatsAppSender whatsApp,
+        IConfiguration configuration)
     {
+        _enlaceBase = (configuration["Cotizaciones:EnlaceBase"] ?? "https://api.helitebdev.cloud").TrimEnd('/');
         _repository = repository;
         _asesores = asesores;
         _productos = productos;
@@ -88,9 +98,12 @@ public class CotizacionService : ICotizacionService
             pdfUrl = await _cloudinary.UploadRawAsync($"cotizaciones/{folio}", stream, ct);
         }
 
+        var token = GenerarToken();
+
         var cotizacion = new Cotizacion
         {
             Folio = folio,
+            Token = token,
             Cliente = request.ClienteNombre,
             ClienteEmail = request.ClienteEmail,
             Asesor = request.Asesor,
@@ -103,7 +116,27 @@ public class CotizacionService : ICotizacionService
         };
         await _repository.InsertAsync(cotizacion, ct);
 
-        return new CotizacionResultDto { Folio = folio, Total = total, PdfUrl = pdfUrl };
+        // Al cliente se le entrega el enlace propio, no el de Cloudinary: ese
+        // revela proveedor, cuenta y carpeta, y el folio lleva marca de tiempo,
+        // asi que se podrian enumerar cotizaciones de otros clientes.
+        return new CotizacionResultDto
+        {
+            Folio = folio,
+            Total = total,
+            PdfUrl = $"{_enlaceBase}/c/{token}",
+        };
+    }
+
+    private static string GenerarToken()
+    {
+        var bytes = RandomNumberGenerator.GetBytes(LargoToken);
+        var chars = new char[LargoToken];
+        for (var i = 0; i < LargoToken; i++)
+        {
+            chars[i] = AlfabetoToken[bytes[i] % AlfabetoToken.Length];
+        }
+
+        return new string(chars);
     }
 
     public Task<Cotizacion?> GetByFolioAsync(string folio, CancellationToken ct = default) =>
