@@ -27,8 +27,21 @@ public class EnviarEmailCotizacionTool : IAgentTool
         var folio = doc.RootElement.GetProperty("folio").GetString() ?? string.Empty;
         var destino = doc.RootElement.GetProperty("destino").GetString() ?? string.Empty;
 
-        await _cotizaciones.EnviarPorEmailAsync(folio, destino, ct);
-        return ToolResult.Ok(new { ok = true });
+        try
+        {
+            await _cotizaciones.EnviarPorEmailAsync(folio, destino, ct);
+            return ToolResult.Ok(new { ok = true });
+        }
+        catch (Exception ex)
+        {
+            // El correo depende de credenciales SMTP y de un servidor externo.
+            // Si falla, el agente debe seguir la conversacion: antes la excepcion
+            // llegaba al controlador y el cliente se quedaba sin ninguna respuesta.
+            return ToolResult.Fail(
+                "No se pudo enviar la cotizacion por correo (" + ex.GetType().Name + "). " +
+                "Dile al cliente que le queda el enlace del PDF y que un asesor se la " +
+                "reenvia al correo; sigue la conversacion con normalidad y no reintentes.");
+        }
     }
 }
 
@@ -55,7 +68,17 @@ public class EnviarWhatsAppCotizacionTool : IAgentTool
         var folio = doc.RootElement.GetProperty("folio").GetString() ?? string.Empty;
         var destino = doc.RootElement.GetProperty("destino").GetString() ?? string.Empty;
 
-        await _cotizaciones.EnviarPorWhatsAppAsync(folio, destino, ct);
-        return ToolResult.Ok(new { ok = true });
+        try
+        {
+            await _cotizaciones.EnviarPorWhatsAppAsync(folio, destino, ct);
+            return ToolResult.Ok(new { ok = true });
+        }
+        catch (Exception ex)
+        {
+            return ToolResult.Fail(
+                "No se pudo reenviar la cotizacion por WhatsApp (" + ex.GetType().Name + "). " +
+                "El cliente ya tiene el enlace del PDF en el chat: recuerdaselo y sigue " +
+                "la conversacion con normalidad.");
+        }
     }
 }
