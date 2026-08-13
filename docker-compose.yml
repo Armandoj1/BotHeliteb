@@ -57,6 +57,12 @@ services:
       # Clave de la API máquina-a-máquina del agente (POST /api/agente/mensaje).
       # Si se deja vacía, ese endpoint responde 503 y no atiende a nadie.
       Agente__ApiKey: "${AGENT_API_KEY}"
+      # Cloudinary aloja los PDF de las cotizaciones. Sin estas tres, el
+      # SDK construye una cuenta vacia y la subida falla; la herramienta
+      # lo reporta y el agente sigue la conversacion, pero no hay PDF.
+      Cloudinary__CloudName: "${CLOUDINARY_CLOUD_NAME}"
+      Cloudinary__ApiKey: "${CLOUDINARY_API_KEY}"
+      Cloudinary__ApiSecret: "${CLOUDINARY_API_SECRET}"
       # Origen(es) del panel permitidos por CORS (separados por coma si hay más
       # de uno). El valor por defecto coincide con el panel local vía Docker;
       # en producción, .env define el dominio real (ver .env.example).
