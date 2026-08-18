@@ -222,7 +222,7 @@ public class AgentOrchestrator : IAgentOrchestrator
             // igual de determinista que antes.
             var cronoHerramientas = Stopwatch.StartNew();
             var toolResultTasks = completion.ToolCalls
-                .Select(toolCall => ExecuteToolCallAsync(toolCall, telefono, ct))
+                .Select(toolCall => ExecuteToolCallAsync(toolCall, telefono, mensaje, ct))
                 .ToArray();
             await Task.WhenAll(toolResultTasks);
             msEnHerramientas += cronoHerramientas.ElapsedMilliseconds;
@@ -325,12 +325,71 @@ public class AgentOrchestrator : IAgentOrchestrator
         return cut.TrimEnd();
     }
 
-    private async Task<string> ExecuteToolCallAsync(LlmToolCall toolCall, string telefono, CancellationToken ct)
+    // Referencias tal como las escribe un cliente: empiezan por letra y llevan guion
+    // o barra (DS-2CD2T47G2-L, CS-H8c-R200, THC-B320-VF), o son un SAP de 8+ digitos.
+    // Se exige que empiece por letra para no capturar rangos de lente ("2.8-12mm").
+    private static readonly Regex ReferenciaLiteralPattern =
+        new(@"\b(?:[A-Za-z][A-Za-z0-9]*(?:[-/][A-Za-z0-9.]+)+|\d{8,})\b", RegexOptions.Compiled);
+
+    // El modelo tiende a reescribir la referencia que dijo el cliente como una
+    // descripcion ("camara exterior 2.8mm"). Asi el camino de codigo exacto de
+    // ProductRepository nunca se dispara, la busqueda cae a semantica y el cliente
+    // recibe un "no la tenemos" sobre algo que SI esta en catalogo (medido: 3 de 3
+    // intentos con DS-2CD2T47G2-L, que existe en 5 variantes). La descripcion del
+    // parametro ya lo prohibe, pero esto lo garantiza sin depender del modelo.
+    private static string ReinyectarReferenciaLiteral(string argumentsJson, string mensajeUsuario)
+    {
+        var referencias = ReferenciaLiteralPattern.Matches(mensajeUsuario)
+            .Select(m => m.Value)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (referencias.Length == 0) return argumentsJson;
+
+        try
+        {
+            if (System.Text.Json.Nodes.JsonNode.Parse(argumentsJson) is not System.Text.Json.Nodes.JsonObject nodo)
+            {
+                return argumentsJson;
+            }
+
+            var query = nodo["query"]?.GetValue<string>() ?? string.Empty;
+            var faltantes = referencias
+                .Where(r => query.IndexOf(r, StringComparison.OrdinalIgnoreCase) < 0)
+                .ToArray();
+            if (faltantes.Length == 0) return argumentsJson;
+
+            nodo["query"] = string.Join(' ', faltantes) + (query.Length > 0 ? " " + query : string.Empty);
+            return nodo.ToJsonString();
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            // Argumentos truncados por max_tokens: ExecuteToolAsync ya devuelve el
+            // error al modelo para que reintente, no hay que adelantarse aqui.
+            return argumentsJson;
+        }
+    }
+
+    private async Task<string> ExecuteToolCallAsync(LlmToolCall toolCall, string telefono, string mensajeUsuario, CancellationToken ct)
     {
         var tool = _tools.Find(toolCall.Name);
-        return tool is null
-            ? $$"""{"success":false,"error":"Herramienta desconocida: {{toolCall.Name}}"}"""
-            : await ExecuteToolAsync(tool, toolCall, telefono, ct);
+        if (tool is null)
+        {
+            return $$"""{"success":false,"error":"Herramienta desconocida: {{toolCall.Name}}"}""";
+        }
+
+        if (toolCall.Name == "buscar_productos")
+        {
+            // Copia: el toolCall original ya quedo en el historial que se reenvia al
+            // modelo, y no debe cambiar bajo sus pies.
+            toolCall = new LlmToolCall
+            {
+                Id = toolCall.Id,
+                Name = toolCall.Name,
+                ArgumentsJson = ReinyectarReferenciaLiteral(toolCall.ArgumentsJson, mensajeUsuario),
+            };
+        }
+
+        return await ExecuteToolAsync(tool, toolCall, telefono, ct);
     }
 
     private static async Task<string> ExecuteToolAsync(IAgentTool tool, LlmToolCall toolCall, string telefono, CancellationToken ct)
