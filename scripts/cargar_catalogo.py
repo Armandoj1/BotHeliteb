@@ -71,6 +71,24 @@ def norm_base(valor):
     return re.sub(r"[^A-Z0-9]", "", texto)
 
 
+def comparten_familia(modelo, candidatos):
+    """El SAP conecta con un SKU de Odoo, pero si el nombre no se parece en
+    nada al del catalogo del proveedor, es mas probable que sea un SAP mal
+    tecleado en Odoo (confirmado dos veces: ver comentario en construir()) que
+    un alias legitimo del mismo producto. Sin esta guardia, un SAP equivocado
+    le presta a un producto el stock y el precio de otro sin que nada lo
+    delate - si no hay parecido de nombre, se trata como si Odoo no lo tuviera.
+    """
+    base_modelo = norm_base(modelo)
+    if not base_modelo:
+        return False
+    for candidato in candidatos:
+        base_sku = norm_base(candidato["sku"])
+        if base_sku and (base_sku in base_modelo or base_modelo in base_sku):
+            return True
+    return False
+
+
 def texto(valor):
     if valor is None:
         return None
@@ -314,13 +332,26 @@ def construir(proveedor, odoo, alcance):
         por_base[norm_base(item["sku"])].append(item)
 
     # Primera pasada: a qué SKU apunta cada fila del proveedor.
+    #
+    # La referencia interna manda sobre el SAP, no al reves. Medido 2026-08-18:
+    # dos plantillas de Odoo (CS-H3c-R100-1K3WKFL y CS-H1c-R101-1G2WR) tienen
+    # tecleado el SAP de OTRO producto (303102714 y 303102650 respectivamente),
+    # y como el cruce por SAP iba primero, el bot le presto a esas dos referencias
+    # el stock y el precio de otra cosa (824 y 484 unidades fantasma en una
+    # sola conversacion real). El campo de referencia es texto disciplinado
+    # con convencion fija; el campo SAP es de tecleo libre y ya demostro fallar
+    # en silencio. Por eso ahora SAP solo decide cuando la referencia no dio
+    # nada, nunca al reves - y aun asi, solo si el nombre del SKU de Odoo se
+    # parece al del catalogo (comparten_familia). Si Odoo no tiene nada que se
+    # le parezca, el producto se trata como si Odoo no lo tuviera (sin_cruce ->
+    # bajo pedido) en vez de prestarle el stock de otra referencia.
     for fila in proveedor:
-        if fila["sap"] and fila["sap"] in por_sap:
-            fila["_skus"], fila["_metodo"] = por_sap[fila["sap"]], "sap"
-        elif norm_full(fila["modelo"]) in por_full:
+        if norm_full(fila["modelo"]) in por_full:
             fila["_skus"], fila["_metodo"] = por_full[norm_full(fila["modelo"])], "modelo"
         elif norm_base(fila["modelo"]) in por_base:
             fila["_skus"], fila["_metodo"] = por_base[norm_base(fila["modelo"])], "modelo_base"
+        elif fila["sap"] and fila["sap"] in por_sap and comparten_familia(fila["modelo"], por_sap[fila["sap"]]):
+            fila["_skus"], fila["_metodo"] = por_sap[fila["sap"]], "sap"
         else:
             fila["_skus"], fila["_metodo"] = [], None
 

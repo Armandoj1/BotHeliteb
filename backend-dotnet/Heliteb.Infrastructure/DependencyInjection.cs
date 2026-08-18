@@ -106,10 +106,12 @@ public static class DependencyInjection
 
         var embeddingsOptions = configuration.GetSection("Embeddings").Get<EmbeddingsOptions>() ?? new EmbeddingsOptions();
         services.AddSingleton(embeddingsOptions);
-        // Singleton con estado mutable en memoria - se puede cambiar desde el panel
-        // (POST /api/embeddings/proveedor) sin reiniciar la API, igual que
-        // ILlmProviderSwitch para DeepSeek/Groq.
-        services.AddSingleton<IEmbeddingProviderSwitch, EmbeddingProviderSwitch>();
+        // Scoped (no Singleton): depende de IAppConfigStore (Scoped) para persistir
+        // el proveedor activo en app_config y que sobreviva a un reinicio de la API -
+        // un Singleton no puede depender de un servicio Scoped sin quedar "cautivo",
+        // mismo motivo por el que IEmailService es Scoped mas arriba. Se cambia desde
+        // el panel (POST /api/embeddings/proveedor).
+        services.AddScoped<IEmbeddingProviderSwitch, EmbeddingProviderSwitch>();
 
         var ollamaOptions = configuration.GetSection("Ollama").Get<OllamaOptions>() ?? new OllamaOptions();
         // 60s (no 30s) de margen: la primera consulta semantica tras un modelo recien
