@@ -9,8 +9,6 @@ namespace Heliteb.Infrastructure.Data.Repositories;
 
 public class ProductRepository : IProductQueries
 {
-    private const string CloudinaryImageBase = "https://res.cloudinary.com/dejnhu8vx/image/upload/heliteb/";
-
     private static readonly HashSet<string> StopwordsAccesorio = new()
     {
         "de", "la", "el", "los", "las", "una", "uno", "unos", "unas", "para", "con",
@@ -41,7 +39,7 @@ public class ProductRepository : IProductQueries
                    vc.linea AS "Linea", vc.serie AS "Serie", vc.sub_serie AS "SubSerie", vc.modelo AS "Modelo",
                    vc.parametro_1 AS "Parametro1", vc.parametro_2 AS "Parametro2", vc.parametro_3 AS "Parametro3",
                    vc.descripcion AS "Descripcion", vc.modelo_etiqueta AS "ModeloEtiqueta",
-                   vc.precio_msrp_cop AS "PrecioMsrpCop",
+                   vc.precio_msrp_cop AS "PrecioMsrpCop", vc.imagen_url AS "ImagenUrl",
                    (SELECT COALESCE(SUM(i.cantidad_disponible), 0) FROM inventario i WHERE i.codigo_sap = vc.codigo_sap) AS "StockTotal"
             FROM vista_catalogo vc
             ORDER BY marca, categoria, modelo
@@ -66,7 +64,6 @@ public class ProductRepository : IProductQueries
 
         foreach (var p in rows)
         {
-            p.ImagenUrl = CloudinaryImageBase + p.CodigoSap;
             if (stockPorProducto.TryGetValue(p.CodigoSap, out var stock))
             {
                 p.StockBodegas = stock;
@@ -98,7 +95,8 @@ public class ProductRepository : IProductQueries
             SELECT codigo_sap AS "CodigoSap", disponibilidad AS "Disponibilidad",
                    uds_sedes AS "UdsSedes", uds_central AS "UdsCentral",
                    variante_exacta AS "VarianteExacta", duplicado_odoo AS "DuplicadoOdoo",
-                   sku_inventario AS "SkuInventario", desglose::text AS "Desglose"
+                   sku_inventario AS "SkuInventario", desglose::text AS "Desglose",
+                   imagen_url AS "ImagenUrl"
             FROM vista_disponibilidad
             WHERE codigo_sap = ANY(@Codigos)
             """;
@@ -123,6 +121,13 @@ public class ProductRepository : IProductQueries
             producto.DuplicadoOdoo = fila.DuplicadoOdoo;
             producto.SkuInventario = fila.SkuInventario;
             producto.DondeHay = FormatearDesglose(fila.Desglose);
+            // Solo se pisa cuando hay una URL real subida - si vista_disponibilidad
+            // trae null (nadie cargo la foto todavia), se deja lo que ya traiga el
+            // producto en vez de borrarlo con un null.
+            if (!string.IsNullOrWhiteSpace(fila.ImagenUrl))
+            {
+                producto.ImagenUrl = fila.ImagenUrl;
+            }
         }
         return productos;
     }
@@ -137,6 +142,7 @@ public class ProductRepository : IProductQueries
         public bool DuplicadoOdoo { get; set; }
         public string? SkuInventario { get; set; }
         public string? Desglose { get; set; }
+        public string? ImagenUrl { get; set; }
     }
 
     /// <summary>El jsonb {"A. BOGOTA": 11} de la vista, a texto plano para el prompt.</summary>
@@ -330,10 +336,6 @@ public class ProductRepository : IProductQueries
 
         using var conn = _connectionFactory.Create();
         var rows = (await conn.QueryAsync<ProductoDto>(sql, param)).AsList();
-        foreach (var p in rows)
-        {
-            p.ImagenUrl = CloudinaryImageBase + p.CodigoSap;
-        }
         return rows;
     }
 
@@ -355,10 +357,6 @@ public class ProductRepository : IProductQueries
 
         using var conn = _connectionFactory.Create();
         var rows = (await conn.QueryAsync<ProductoDto>(sql, new { CodeTokens = codeTokens, Limit = limit })).AsList();
-        foreach (var p in rows)
-        {
-            p.ImagenUrl = CloudinaryImageBase + p.CodigoSap;
-        }
         return rows;
     }
 
@@ -512,10 +510,6 @@ public class ProductRepository : IProductQueries
                 .ToList();
         }
 
-        foreach (var p in rows)
-        {
-            p.ImagenUrl = CloudinaryImageBase + p.CodigoSap;
-        }
         return rows;
     }
 
@@ -749,10 +743,6 @@ public class ProductRepository : IProductQueries
 
         using var conn = _connectionFactory.Create();
         var rows = (await conn.QueryAsync<ProductoDto>(sql, new { Pattern = $"%{query}%", Limit = limit })).AsList();
-        foreach (var p in rows)
-        {
-            p.ImagenUrl = CloudinaryImageBase + p.CodigoSap;
-        }
         return await ConDisponibilidadAsync(rows, ct);
     }
 
@@ -773,7 +763,6 @@ public class ProductRepository : IProductQueries
         var p = await conn.QueryFirstOrDefaultAsync<ProductoDto>(sql, new { CodigoSap = codigoSap });
         if (p is not null)
         {
-            p.ImagenUrl = CloudinaryImageBase + p.CodigoSap;
             await ConDisponibilidadAsync(new[] { p }, ct);
         }
         return p;

@@ -16,7 +16,7 @@ public class ProductoDto
     public string? ModeloEtiqueta { get; set; }
     public decimal? PrecioMsrpCop { get; set; }
     public int StockTotal { get; set; }
-    public string ImagenUrl { get; set; } = null!;
+    public string? ImagenUrl { get; set; }
 
     /// <summary>
     /// EN_SEDE (hay unidades en mostrador) | EN_BODEGA_CENTRAL (hay, pero requiere
