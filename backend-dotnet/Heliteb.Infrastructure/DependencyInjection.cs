@@ -16,6 +16,7 @@ using Heliteb.Infrastructure.Media;
 using Heliteb.Infrastructure.Messaging;
 using Heliteb.Infrastructure.Messaging.Kommo;
 using Heliteb.Infrastructure.Monitoring;
+using Heliteb.Infrastructure.Odoo;
 using Heliteb.Infrastructure.Pdf;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
@@ -106,6 +107,16 @@ public static class DependencyInjection
             sp.GetRequiredService<GroqClient>()));
 
         var embeddingsOptions = configuration.GetSection("Embeddings").Get<EmbeddingsOptions>() ?? new EmbeddingsOptions();
+        var odooOptions = configuration.GetSection("Odoo").Get<OdooOptions>() ?? new OdooOptions();
+        services.AddSingleton(odooOptions);
+        services.AddHttpClient(nameof(OdooXmlRpcClient), http => http.Timeout = TimeSpan.FromSeconds(30));
+        // Scoped: OdooXmlRpcClient cachea el uid autenticado en un campo de instancia,
+        // que solo debe vivir mientras dura un request (no compartir el uid entre
+        // llamadas concurrentes de distintos clientes via un Singleton).
+        services.AddScoped(sp => new OdooXmlRpcClient(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(OdooXmlRpcClient)), odooOptions));
+        services.AddScoped<OdooVentasService>();
+
         services.AddSingleton(embeddingsOptions);
         // Scoped (no Singleton): depende de IAppConfigStore (Scoped) para persistir
         // el proveedor activo en app_config y que sobreviva a un reinicio de la API -

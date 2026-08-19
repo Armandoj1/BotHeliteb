@@ -72,6 +72,12 @@ services:
       # de uno). El valor por defecto coincide con el panel local vía Docker;
       # en producción, .env define el dominio real (ver .env.example).
       Cors__AllowedOrigins: "${CORS_ALLOWED_ORIGINS:-http://localhost:4321}"
+      # Odoo: crear cliente y cotizacion reales al cerrar una venta (ver
+      # OdooVentasService). Mismas credenciales que ya usa el ETL de stock.
+      Odoo__Url: "${ODOO_URL}"
+      Odoo__Db: "${ODOO_DB}"
+      Odoo__User: "${ODOO_USER}"
+      Odoo__Password: "${ODOO_PASSWORD}"
     ports:
       - "5090:8080"
     volumes:
