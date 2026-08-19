@@ -1,0 +1,8 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { PromptPersonaPanel } from '@/components/prompts/PromptPersonaPanel';
+---
+
+<AdminLayout title="Prompts" description="Personalidad y estilo de venta del asistente">
+  <PromptPersonaPanel client:load />
+</AdminLayout>

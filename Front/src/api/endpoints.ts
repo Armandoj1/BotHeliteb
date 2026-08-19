@@ -40,6 +40,11 @@ export const ENDPOINTS = {
     deactivate: (id: number) => `/api/agente-notas/${id}/desactivar`,
     remove: (id: number) => `/api/agente-notas/${id}`,
   },
+  promptPersona: {
+    get: (canal: string) => `/api/prompt-persona?canal=${encodeURIComponent(canal)}`,
+    save: '/api/prompt-persona',
+    restore: (canal: string) => `/api/prompt-persona?canal=${encodeURIComponent(canal)}`,
+  },
   resources: {
     system: '/api/system/recursos',
   },

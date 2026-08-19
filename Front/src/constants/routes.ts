@@ -8,6 +8,7 @@ export const ROUTES = {
   QUOTATIONS: '/quotations',
   ADVISORS: '/advisors',
   NOTES: '/notes',
+  PROMPTS: '/prompts',
   SYNC: '/sync',
   SETTINGS: '/settings',
   RESOURCES: '/resources',

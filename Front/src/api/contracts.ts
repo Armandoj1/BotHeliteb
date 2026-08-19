@@ -87,6 +87,15 @@ export interface IApiAgentNota {
   canal?: string | null;
 }
 
+/** Persona/estilo de venta del agente (ver Heliteb.Agent.SystemPrompt). */
+export interface IApiPromptPersona {
+  canal: string;
+  contenido: string;
+  /** false = todavía usando el texto por defecto, nadie lo ha guardado. */
+  personalizado: boolean;
+  contenido_por_defecto: string;
+}
+
 export interface IApiMetrics {
   productos: number;
   cotizaciones: number;

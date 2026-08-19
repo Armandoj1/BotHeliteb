@@ -10,6 +10,7 @@ import {
   RefreshCcwDot,
   Settings2,
   SlidersHorizontal,
+  Sparkles,
   UsersRound,
 } from 'lucide-react';
 
@@ -51,6 +52,14 @@ export const NAV_ITEMS: readonly INavItem[] = [
     href: ROUTES.NOTES,
     icon: NotebookPen,
     description: 'Instrucciones que guían al asistente',
+    group: 'workspace',
+  },
+  {
+    id: 'prompts',
+    label: 'Prompts',
+    href: ROUTES.PROMPTS,
+    icon: Sparkles,
+    description: 'Personalidad y estilo de venta por WhatsApp',
     group: 'workspace',
   },
   {
