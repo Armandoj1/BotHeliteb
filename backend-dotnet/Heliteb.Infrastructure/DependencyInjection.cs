@@ -41,6 +41,7 @@ public static class DependencyInjection
         services.AddScoped<ICotizacionService, CotizacionService>();
         services.AddScoped<IAsesorAuthService, AsesorAuthService>();
         services.AddScoped<IAgentNotasRepository, AgentNotasRepository>();
+        services.AddScoped<IPromptPersonaRepository, PromptPersonaRepository>();
         services.AddScoped<IInformacionEmpresaRepository, InformacionEmpresaRepository>();
         services.AddScoped<IAppConfigStore, AppConfigRepository>();
         services.AddScoped<IRecursosMuestraRepository, RecursosMuestraRepository>();

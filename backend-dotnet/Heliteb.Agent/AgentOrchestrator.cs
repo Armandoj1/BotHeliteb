@@ -44,16 +44,18 @@ public class AgentOrchestrator : IAgentOrchestrator
     private readonly IConversationStore _conversations;
     private readonly ToolRegistry _tools;
     private readonly IAgentNotasRepository _notas;
+    private readonly IPromptPersonaRepository _personaPrompt;
     private readonly ILlmProviderSwitch _llmProviderSwitch;
     private readonly ILogger<AgentOrchestrator> _logger;
 
-    public AgentOrchestrator(ILlmClient llm, IConversationStore conversations, ToolRegistry tools, IAgentNotasRepository notas, ILlmProviderSwitch llmProviderSwitch, ILogger<AgentOrchestrator> logger)
+    public AgentOrchestrator(ILlmClient llm, IConversationStore conversations, ToolRegistry tools, IAgentNotasRepository notas, IPromptPersonaRepository personaPrompt, ILlmProviderSwitch llmProviderSwitch, ILogger<AgentOrchestrator> logger)
     {
         _logger = logger;
         _llm = llm;
         _conversations = conversations;
         _tools = tools;
         _notas = notas;
+        _personaPrompt = personaPrompt;
         _llmProviderSwitch = llmProviderSwitch;
     }
 
@@ -102,16 +104,20 @@ public class AgentOrchestrator : IAgentOrchestrator
 
         // Se piden más filas de las necesarias porque las filas "tool" (bitácora)
         // cuentan contra el límite pero se descartan antes de re-enviarse al LLM.
-        // Historial y notas no dependen entre sí, así que se piden en paralelo.
+        // Historial, notas y la persona de venta no dependen entre sí, así que se
+        // piden en paralelo.
+        var canalNormalizado = SystemPrompt.NormalizarCanal(canal);
         var historialTask = _conversations.GetRecentAsync(telefono, generacion, ContextWindowTurns * 4, ct);
-        var notasTask = _notas.GetActivasAsync(SystemPrompt.NormalizarCanal(canal), ct);
-        await Task.WhenAll(historialTask, notasTask);
+        var notasTask = _notas.GetActivasAsync(canalNormalizado, ct);
+        var personaTask = _personaPrompt.GetAsync(canalNormalizado, ct);
+        await Task.WhenAll(historialTask, notasTask, personaTask);
         var historial = historialTask.Result;
         var notasActivas = notasTask.Result;
+        var personaVendedor = personaTask.Result;
 
         var messages = new List<LlmMessage>
         {
-            new() { Role = LlmRole.System, Content = SystemPrompt.Build(telefono, notasActivas.Select(n => n.Contenido).ToList(), canal) },
+            new() { Role = LlmRole.System, Content = SystemPrompt.Build(telefono, notasActivas.Select(n => n.Contenido).ToList(), canal, personaVendedor) },
         };
         // Solo user/assistant se re-envían como historial: los mensajes "tool" se
         // guardan únicamente como bitácora (su tool_call_id no sobrevive entre

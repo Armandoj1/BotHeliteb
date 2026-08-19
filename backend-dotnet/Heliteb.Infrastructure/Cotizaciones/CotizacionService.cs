@@ -70,10 +70,21 @@ public class CotizacionService : ICotizacionService
                 // El agente conversa en modelo (CS-H6c-R105-1L3WF) y aqui se
                 // espera el SAP numerico (303103135). Antes se descartaba en
                 // silencio y salia una cotizacion en cero.
+                //
+                // El match exacto (string.Equals contra Modelo completo) fallaba
+                // siempre que el modelo real trajera sufijos pegados - lente,
+                // region, hasta caracteres en chino: "CS-H8c-R200-1K3WKFL(4mm)
+                // (AM-STD)(Mul)" nunca es igual a "CS-H8c-R200-1K3WKFL", que es
+                // como lo dice el agente. Confirmado en produccion: una camara y
+                // una microSD, las dos reales y con stock, fallaron las dos por
+                // esto y tumbaron la cotizacion completa (lineas.Count=0). Se
+                // compara normalizado (sin parentesis ni caracteres no
+                // alfanumericos) y con contains, no con igualdad exacta.
                 var candidatos = await _productos.BuscarProductosAsync(codigoSap, null, 5, ct);
+                var codigoNormalizado = NormalizarModelo(codigoSap);
                 producto = candidatos.FirstOrDefault(p =>
-                    string.Equals(p.Modelo, codigoSap, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(p.CodigoSap, codigoSap, StringComparison.OrdinalIgnoreCase));
+                    string.Equals(p.CodigoSap, codigoSap, StringComparison.OrdinalIgnoreCase)
+                    || (codigoNormalizado.Length > 0 && NormalizarModelo(p.Modelo).Contains(codigoNormalizado)));
             }
 
             if (producto is null)
@@ -195,5 +206,15 @@ public class CotizacionService : ICotizacionService
             cotizacion.PdfUrl,
             $"{folio}.pdf",
             ct: ct);
+    }
+
+    // Deja solo letras y numeros, sin parentesis ni su contenido: "CS-H8c-R200-
+    // 1K3WKFL(4mm)(AM-STD)(Mul)" -> "CSH8CR2001K3WKFLMULAMSTD"... el orden no
+    // importa, solo que el string base quede como substring reconocible.
+    private static string NormalizarModelo(string? valor)
+    {
+        if (string.IsNullOrWhiteSpace(valor)) return string.Empty;
+        var sinParentesis = System.Text.RegularExpressions.Regex.Replace(valor, @"\([^)]*\)", " ");
+        return System.Text.RegularExpressions.Regex.Replace(sinParentesis, @"[^A-Za-z0-9]", "").ToUpperInvariant();
     }
 }
