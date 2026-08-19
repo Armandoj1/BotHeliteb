@@ -34,7 +34,12 @@ XLSX_POR_DEFECTO = os.path.join(RAIZ, "InformacionEmpresa", "PRUEBA TECNICA AGEN
 
 # Bodegas de mostrador: lo que un cliente puede recoger hoy. Son las 10 sucursales
 # de venta, las mismas que siembra sql/schema.sql en la tabla `bodegas`.
-BODEGAS_SEDE = {"01", "03", "04", "08", "09", "11", "17", "21", "25", "26"}
+# IDs reales de stock.location en Odoo (no el nombre) - fuente: el export
+# "Ubicaciones de inventario (stock.location).xlsx" que Jose bajo de Odoo.
+# Antes se derivaba el codigo partiendo complete_name ("01/STOCK-A. OBRERO"
+# -> "01"), que depende de que nadie le cambie el nombre a la ubicacion en
+# Odoo. El ID no cambia nunca, asi que es la fuente de verdad para decidir
+BODEGAS_SEDE_IDS = {216, 222, 228, 246, 252, 264, 300, 324, 348, 354}
 # Bodegas centrales: hay existencias, pero requieren traslado a la sede.
 BODEGAS_CENTRALES = {"LS", "CDBAQ", "CDBOG", "DLTD", "Mini", "07", "00"}
 
@@ -239,6 +244,7 @@ def extraer_de_odoo():
                    fields=["id", "complete_name", "warehouse_id"], limit=500):
         nombre = loc["complete_name"] or ""
         ubicaciones[str(loc["id"])] = dict(
+            id=loc["id"],
             codigo=nombre.split("/")[0].strip() if "/" in nombre else nombre.strip(),
             nombre=nombre,
             warehouse=loc["warehouse_id"][1] if loc.get("warehouse_id") else None)
@@ -272,9 +278,9 @@ def extraer_de_odoo():
                              for (t, l), c in acumulado.items() if c != 0])
 
 
-def tipo_de_bodega(codigo, nombre):
+def tipo_de_bodega(location_id, codigo, nombre):
     mayus = (nombre or "").upper()
-    if codigo in BODEGAS_SEDE:
+    if location_id in BODEGAS_SEDE_IDS:
         return "sede"
     if "GARANT" in mayus:
         return "garantias"
@@ -374,7 +380,7 @@ def construir(proveedor, odoo, alcance):
         if item["sku"] in cruzados:
             continue
         vendible = sum(e["cantidad"] for e in item["existencias"]
-                       if tipo_de_bodega(info_por_nombre[e["nombre"]]["codigo"],
+                       if tipo_de_bodega(info_por_nombre[e["nombre"]]["id"], info_por_nombre[e["nombre"]]["codigo"],
                                          e["nombre"]) in ("sede", "central"))
         if vendible <= 0:
             continue
@@ -493,7 +499,7 @@ def _escribir_stock(cur, proveedor, items, huerfanos, info_por_nombre):
         for existencia in item["existencias"]:
             info = info_por_nombre[existencia["nombre"]]
             filas_exist.append((sku[:80], info["codigo"][:20], existencia["nombre"][:120],
-                                tipo_de_bodega(info["codigo"], existencia["nombre"]),
+                                tipo_de_bodega(info["id"], info["codigo"], existencia["nombre"]),
                                 existencia["cantidad"]))
     psycopg2.extras.execute_batch(cur, """
         INSERT INTO stock_existencias (sku, codigo_bodega, nombre_bodega, tipo_bodega, cantidad)
@@ -523,7 +529,7 @@ def _escribir_stock(cur, proveedor, items, huerfanos, info_por_nombre):
         for item in fila["_skus"]:
             for existencia in item["existencias"]:
                 info = info_por_nombre[existencia["nombre"]]
-                if info["codigo"] in id_bodega and tipo_de_bodega(info["codigo"], existencia["nombre"]) == "sede":
+                if info["codigo"] in id_bodega and tipo_de_bodega(info["id"], info["codigo"], existencia["nombre"]) == "sede":
                     filas_inv[(fila["sap"], id_bodega[info["codigo"]])] += existencia["cantidad"]
     psycopg2.extras.execute_batch(cur, """
         INSERT INTO inventario (codigo_sap, id_bodega, cantidad_disponible) VALUES (%s,%s,%s)
@@ -586,7 +592,7 @@ def main():
         for item in fila["_skus"]:
             for existencia in item["existencias"]:
                 info = info_por_nombre[existencia["nombre"]]
-                tipo = tipo_de_bodega(info["codigo"], existencia["nombre"])
+                tipo = tipo_de_bodega(info["id"], info["codigo"], existencia["nombre"])
                 if tipo == "sede":
                     sede += existencia["cantidad"]
                 elif tipo == "central":
