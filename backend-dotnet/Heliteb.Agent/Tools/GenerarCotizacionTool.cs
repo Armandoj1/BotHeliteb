@@ -25,10 +25,13 @@ public class GenerarCotizacionTool : IAgentTool
           "properties": {
             "codigos_sap": { "type": "array", "items": { "type": "string" }, "description": "Códigos SAP a cotizar" },
             "cliente_nombre": { "type": "string" },
+            "cliente_identificacion": { "type": "string", "description": "NIT o cedula del cliente, tal cual lo dio" },
+            "cliente_ciudad": { "type": "string", "description": "Ciudad del cliente" },
+            "cliente_correo": { "type": "string", "description": "Correo del cliente, para enviarle el PDF" },
             "asesor": { "type": "string", "description": "Nombre del asesor verificado" },
             "telefono_asesor": { "type": "string", "description": "Teléfono del usuario actual, obligatorio" }
           },
-          "required": ["codigos_sap", "cliente_nombre", "asesor", "telefono_asesor"]
+          "required": ["codigos_sap", "cliente_nombre", "cliente_identificacion", "cliente_ciudad", "cliente_correo", "asesor", "telefono_asesor"]
         }
         """;
 
@@ -49,6 +52,10 @@ public class GenerarCotizacionTool : IAgentTool
         {
             CodigosSap = codigos,
             ClienteNombre = root.GetProperty("cliente_nombre").GetString() ?? string.Empty,
+            ClienteIdentificacion = LeerString(root, "cliente_identificacion"),
+            ClienteCiudad = LeerString(root, "cliente_ciudad"),
+            ClienteEmail = LeerString(root, "cliente_correo"),
+            ClienteTelefono = telefono,
             Asesor = root.GetProperty("asesor").GetString() ?? string.Empty,
             TelefonoAsesor = root.GetProperty("telefono_asesor").GetString() ?? telefono,
         };
@@ -91,4 +98,7 @@ public class GenerarCotizacionTool : IAgentTool
                 "la conversacion con normalidad; no vuelvas a intentarlo en este turno.");
         }
     }
+
+    private static string? LeerString(JsonElement root, string nombre) =>
+        root.TryGetProperty(nombre, out var el) && el.ValueKind == JsonValueKind.String ? el.GetString() : null;
 }

@@ -6,7 +6,9 @@ using Heliteb.Application.Cotizaciones;
 using Heliteb.Application.Cotizaciones.Dtos;
 using Heliteb.Domain.Entities;
 using Heliteb.Infrastructure.Data.Repositories;
+using Heliteb.Infrastructure.Odoo;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 
 namespace Heliteb.Infrastructure.Cotizaciones;
@@ -20,6 +22,8 @@ public class CotizacionService : ICotizacionService
     private readonly ICloudinaryService _cloudinary;
     private readonly IEmailService _email;
     private readonly IWhatsAppSender _whatsApp;
+    private readonly OdooVentasService _odooVentas;
+    private readonly ILogger<CotizacionService> _logger;
     private readonly string _enlaceBase;
 
     // Alfabeto sin caracteres que se confunden al dictar un enlace por telefono
@@ -35,6 +39,8 @@ public class CotizacionService : ICotizacionService
         ICloudinaryService cloudinary,
         IEmailService email,
         IWhatsAppSender whatsApp,
+        OdooVentasService odooVentas,
+        ILogger<CotizacionService> logger,
         IConfiguration configuration)
     {
         _enlaceBase = (configuration["Cotizaciones:EnlaceBase"] ?? "https://api.helitebdev.cloud").TrimEnd('/');
@@ -45,6 +51,8 @@ public class CotizacionService : ICotizacionService
         _cloudinary = cloudinary;
         _email = email;
         _whatsApp = whatsApp;
+        _odooVentas = odooVentas;
+        _logger = logger;
     }
 
     public async Task<CotizacionResultDto> GenerarAsync(GenerarCotizacionRequest request, CancellationToken ct = default)
@@ -117,6 +125,37 @@ public class CotizacionService : ICotizacionService
         var iva = Math.Round(subtotal * 0.19m, 0);
         var total = subtotal + iva;
         var folio = $"HEL-{DateTime.UtcNow:yyyyMMddHHmmss}";
+
+        // Odoo es ahora la fuente de verdad de la cotizacion (antes solo era una
+        // aproximacion nuestra): si hay identificacion y ciudad, se crea el
+        // cliente y la orden REALES alla, y el folio/total que ve el cliente pasan
+        // a ser los que Odoo calculo con su propia lista de precios. Si Odoo falla
+        // por lo que sea (red, credencial, un producto sin cruce en Odoo), la
+        // cotizacion se sigue emitiendo con el folio y los precios propios de
+        // siempre - un problema de Odoo nunca debe tumbar una venta.
+        if (!string.IsNullOrWhiteSpace(request.ClienteIdentificacion) && !string.IsNullOrWhiteSpace(request.ClienteCiudad))
+        {
+            try
+            {
+                var partnerId = await _odooVentas.BuscarOCrearClienteAsync(
+                    request.ClienteNombre, request.ClienteIdentificacion, request.ClienteTelefono ?? "",
+                    request.ClienteEmail ?? "", request.ClienteCiudad, ct);
+
+                var lineasOdoo = lineas.Select(l => new OdooLineaCotizacion(l.CodigoSap, l.Cantidad)).ToList();
+                var resultadoOdoo = await _odooVentas.CrearCotizacionAsync(partnerId, lineasOdoo, ct);
+
+                folio = resultadoOdoo.Numero;
+                subtotal = resultadoOdoo.Subtotal;
+                iva = resultadoOdoo.Iva;
+                total = resultadoOdoo.Total;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "No se pudo crear la cotizacion en Odoo para {Cliente}, se sigue con el folio propio.",
+                    request.ClienteNombre);
+            }
+        }
 
         var pdfBytes = _pdf.GenerarCotizacionPdf(new CotizacionPdfModel
         {

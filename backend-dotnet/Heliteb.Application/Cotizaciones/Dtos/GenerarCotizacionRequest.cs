@@ -13,6 +13,17 @@ public class GenerarCotizacionRequest
     /// Nunca se confía en que el agente/LLM ya lo haya verificado en su memoria.
     /// </summary>
     public string TelefonoAsesor { get; set; } = null!;
+
+    /// <summary>
+    /// NIT o cédula del cliente. Opcionales por compatibilidad con llamadas viejas,
+    /// pero sin ambos la cotización no se crea en Odoo (ver CotizacionService):
+    /// solo se genera el PDF propio, como antes de conectar Odoo.
+    /// </summary>
+    public string? ClienteIdentificacion { get; set; }
+    public string? ClienteCiudad { get; set; }
+
+    /// <summary>Teléfono del CLIENTE (no del asesor) para el contacto en Odoo.</summary>
+    public string? ClienteTelefono { get; set; }
 }
 
 public class CotizacionResultDto
