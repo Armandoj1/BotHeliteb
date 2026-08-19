@@ -21,6 +21,7 @@ public static class DependencyInjection
         services.AddScoped<IAgentTool, ConsultarGarantiaTool>();
         services.AddScoped<IAgentTool, ConsultarMediosPagoTool>();
         services.AddScoped<IAgentTool, ConsultarQrPagoTool>();
+        services.AddScoped<IAgentTool, ConsultarFotoProductoTool>();
 
         services.AddScoped<ToolRegistry>();
         services.AddScoped<IAgentOrchestrator, AgentOrchestrator>();
