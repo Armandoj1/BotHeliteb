@@ -32,12 +32,13 @@ public class ComparacionAgentFactory
     private readonly IEnumerable<IAgentTool> _herramientasAmbiente;
     private readonly DeepSeekClient _deepSeek;
     private readonly GroqClient _groq;
+    private readonly IMediaInterpreter _mediaInterpreter;
     private readonly ILogger<AgentOrchestrator> _loggerOrquestador;
 
     public ComparacionAgentFactory(
         INpgsqlConnectionFactory connectionFactory, IConversationStore conversations,
         IAgentNotasRepository notas, IPromptPersonaRepository personaPrompt, IEnumerable<IAgentTool> herramientasAmbiente,
-        DeepSeekClient deepSeek, GroqClient groq, ILogger<AgentOrchestrator> loggerOrquestador)
+        DeepSeekClient deepSeek, GroqClient groq, IMediaInterpreter mediaInterpreter, ILogger<AgentOrchestrator> loggerOrquestador)
     {
         _connectionFactory = connectionFactory;
         _conversations = conversations;
@@ -46,6 +47,7 @@ public class ComparacionAgentFactory
         _herramientasAmbiente = herramientasAmbiente;
         _deepSeek = deepSeek;
         _groq = groq;
+        _mediaInterpreter = mediaInterpreter;
         _loggerOrquestador = loggerOrquestador;
     }
 
@@ -66,6 +68,6 @@ public class ComparacionAgentFactory
         ILlmClient llmFijo = llmProveedor.Equals("groq", StringComparison.OrdinalIgnoreCase) ? _groq : _deepSeek;
         var switchLlmFijo = new FixedLlmProviderSwitch(llmProveedor);
 
-        return new AgentOrchestrator(llmFijo, _conversations, registry, _notas, _personaPrompt, switchLlmFijo, _loggerOrquestador);
+        return new AgentOrchestrator(llmFijo, _conversations, registry, _notas, _personaPrompt, switchLlmFijo, _mediaInterpreter, _loggerOrquestador);
     }
 }

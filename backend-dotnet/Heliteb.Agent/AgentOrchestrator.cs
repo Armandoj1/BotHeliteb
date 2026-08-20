@@ -46,9 +46,10 @@ public class AgentOrchestrator : IAgentOrchestrator
     private readonly IAgentNotasRepository _notas;
     private readonly IPromptPersonaRepository _personaPrompt;
     private readonly ILlmProviderSwitch _llmProviderSwitch;
+    private readonly IMediaInterpreter _mediaInterpreter;
     private readonly ILogger<AgentOrchestrator> _logger;
 
-    public AgentOrchestrator(ILlmClient llm, IConversationStore conversations, ToolRegistry tools, IAgentNotasRepository notas, IPromptPersonaRepository personaPrompt, ILlmProviderSwitch llmProviderSwitch, ILogger<AgentOrchestrator> logger)
+    public AgentOrchestrator(ILlmClient llm, IConversationStore conversations, ToolRegistry tools, IAgentNotasRepository notas, IPromptPersonaRepository personaPrompt, ILlmProviderSwitch llmProviderSwitch, IMediaInterpreter mediaInterpreter, ILogger<AgentOrchestrator> logger)
     {
         _logger = logger;
         _llm = llm;
@@ -57,6 +58,7 @@ public class AgentOrchestrator : IAgentOrchestrator
         _notas = notas;
         _personaPrompt = personaPrompt;
         _llmProviderSwitch = llmProviderSwitch;
+        _mediaInterpreter = mediaInterpreter;
     }
 
     // Comando de PRUEBA MANUAL (no negocio) para alternar el proveedor del LLM sin
@@ -82,7 +84,9 @@ public class AgentOrchestrator : IAgentOrchestrator
     private static readonly Regex PrecioEnHerramientaPattern =
         new(@"""(?:Precio|PrecioMsrpCop)""\s*:\s*(\d+(?:\.\d+)?)", RegexOptions.Compiled);
 
-    public async Task<string> HandleMessageAsync(string telefono, string mensaje, string? contactName, CancellationToken ct = default, string? canal = null)
+    public async Task<string> HandleMessageAsync(
+        string telefono, string mensaje, string? contactName, CancellationToken ct = default,
+        string? canal = null, string? adjuntoUrl = null, string? tipoAdjunto = null)
     {
         var comandoProveedor = CambiaProveedorPattern.Match(mensaje.Trim());
         if (comandoProveedor.Success)
@@ -98,6 +102,20 @@ public class AgentOrchestrator : IAgentOrchestrator
         if (esLimpiar)
         {
             return "Listo, empecemos de nuevo. ¿En qué te puedo ayudar?";
+        }
+
+        // Foto o nota de voz: el agente solo entiende texto, asi que se convierte
+        // ACA (antes de guardar el turno) para que quede en el historial igual que
+        // si el cliente lo hubiera escrito - turnos futuros tambien ven que producto
+        // mostro en la foto o que pidio por audio.
+        if (!string.IsNullOrWhiteSpace(adjuntoUrl))
+        {
+            var interpretado = await _mediaInterpreter.InterpretarAsync(adjuntoUrl, tipoAdjunto ?? "", ct);
+            mensaje = interpretado is not null
+                ? (string.IsNullOrWhiteSpace(mensaje) ? interpretado : $"{mensaje}\n\n{interpretado}")
+                : (string.IsNullOrWhiteSpace(mensaje)
+                    ? "[El cliente mando un adjunto que no se pudo procesar. Pidele que te cuente que necesita.]"
+                    : mensaje);
         }
 
         await _conversations.AppendAsync(telefono, generacion, "user", mensaje, ct);

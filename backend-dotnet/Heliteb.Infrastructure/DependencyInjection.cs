@@ -155,6 +155,22 @@ public static class DependencyInjection
             sp.GetRequiredService<OllamaEmbeddingClient>(),
             sp.GetRequiredService<GeminiEmbeddingClient>()));
 
+        // Foto/audio de WhatsApp que manda el cliente via Kommo: el link de adjunto
+        // redirige varias veces hasta una URL firmada de Google Storage -
+        // AllowAutoRedirect por defecto de HttpClient sigue la cadena solo, sin
+        // necesitar ningun token de Kommo. Audio por Groq (Whisper), imagen por
+        // Gemini (unico proveedor con vision confiable que se probo).
+        services.AddHttpClient(nameof(GroqMediaInterpreter), http => http.Timeout = TimeSpan.FromSeconds(30));
+        services.AddHttpClient(nameof(GeminiVisionClient), http => http.Timeout = TimeSpan.FromSeconds(30));
+        services.AddScoped(sp => new GeminiVisionClient(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(GeminiVisionClient)), geminiOptions,
+            sp.GetRequiredService<IAppConfigStore>()));
+        services.AddScoped<IMediaInterpreter>(sp => new GroqMediaInterpreter(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(GroqMediaInterpreter)),
+            sp.GetRequiredService<GroqClient>(),
+            sp.GetRequiredService<GeminiVisionClient>(),
+            sp.GetRequiredService<ILogger<GroqMediaInterpreter>>()));
+
         var inboxCrmOptions = configuration.GetSection("InboxCrm").Get<InboxCrmOptions>()
             ?? throw new InvalidOperationException("Falta la sección InboxCrm en la configuración.");
         services.AddHttpClient(nameof(InboxCrmWhatsAppSender));

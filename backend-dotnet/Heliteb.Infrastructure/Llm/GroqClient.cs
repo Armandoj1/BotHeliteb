@@ -112,6 +112,43 @@ public class GroqClient : ILlmClient
         return new LlmCompletion { Content = content, ToolCalls = toolCalls };
     }
 
+    // whisper-large-v3-turbo: rapido y barato, alcanza de sobra para una nota de voz
+    // de un cliente pidiendo algo (no hace falta la precision del modelo completo).
+    private const string TranscriptionModel = "whisper-large-v3-turbo";
+
+    /// <summary>
+    /// Transcribe una nota de voz de WhatsApp a texto en español, para que el agente
+    /// (basado en texto) la procese como si el cliente la hubiera escrito.
+    /// </summary>
+    public async Task<string> TranscribirAudioAsync(byte[] audioBytes, string nombreArchivo, CancellationToken ct = default)
+    {
+        var apiKey = await ResolveApiKeyAsync(ct);
+        if (string.IsNullOrWhiteSpace(apiKey) || apiKey.Equals("CHANGE_ME", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("La API key de Groq no está configurada.");
+        }
+
+        using var content = new MultipartFormDataContent();
+        var archivo = new ByteArrayContent(audioBytes);
+        archivo.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+        content.Add(archivo, "file", nombreArchivo);
+        content.Add(new StringContent(TranscriptionModel), "model");
+        content.Add(new StringContent("es"), "language");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "audio/transcriptions") { Content = content };
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+
+        using var response = await _http.SendAsync(request, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(ct);
+            throw new HttpRequestException($"Groq transcripcion {(int)response.StatusCode}: {errorBody}");
+        }
+
+        var body = await response.Content.ReadFromJsonAsync<JsonNode>(cancellationToken: ct);
+        return body!["text"]!.GetValue<string>().Trim();
+    }
+
     /// <summary>
     /// El panel guarda su propia API key en app_config (ver LlmSettingsController) sin
     /// reiniciar la API - mismo patrón que GeminiEmbeddingClient.ResolveApiKeyAsync.

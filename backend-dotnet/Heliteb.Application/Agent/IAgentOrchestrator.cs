@@ -6,5 +6,7 @@ namespace Heliteb.Application.Agent;
 /// </summary>
 public interface IAgentOrchestrator
 {
-    Task<string> HandleMessageAsync(string telefono, string mensaje, string? contactName, CancellationToken ct = default, string? canal = null);
+    Task<string> HandleMessageAsync(
+        string telefono, string mensaje, string? contactName, CancellationToken ct = default,
+        string? canal = null, string? adjuntoUrl = null, string? tipoAdjunto = null);
 }

@@ -27,6 +27,20 @@ public class AgenteMensajeRequest
     /// como antes de existir este campo.
     /// </summary>
     public string? Canal { get; set; }
+
+    /// <summary>
+    /// URL de la foto o nota de voz que mando el cliente (adjunto de WhatsApp vía
+    /// Kommo). Opcional - cuando viene, el agente la interpreta (describe la foto o
+    /// transcribe el audio) antes de responder. Con esto puede venir Mensaje vacío
+    /// (el cliente solo mandó la foto, sin texto).
+    /// </summary>
+    public string? AdjuntoUrl { get; set; }
+
+    /// <summary>
+    /// Tipo del adjunto tal como lo manda Kommo (ej. "picture", "voice", "audio",
+    /// "file"). Determina si se transcribe como audio o se describe como imagen.
+    /// </summary>
+    public string? TipoAdjunto { get; set; }
 }
 
 /// <summary>
@@ -72,9 +86,12 @@ public class AgenteApiController : ControllerBase
         var rechazo = VerificarClave();
         if (rechazo is not null) return rechazo;
 
-        if (string.IsNullOrWhiteSpace(request.SessionId) || string.IsNullOrWhiteSpace(request.Mensaje))
+        // Mensaje puede venir vacio SOLO si trae un adjunto (el cliente mando una foto
+        // o nota de voz sin texto) - el agente lo interpreta antes de responder.
+        if (string.IsNullOrWhiteSpace(request.SessionId)
+            || (string.IsNullOrWhiteSpace(request.Mensaje) && string.IsNullOrWhiteSpace(request.AdjuntoUrl)))
         {
-            return BadRequest(new { ok = false, motivo = "session_id y mensaje son obligatorios." });
+            return BadRequest(new { ok = false, motivo = "session_id y (mensaje o adjunto_url) son obligatorios." });
         }
 
         // El session_id entra tal cual como llave del historial. Se acota el largo
@@ -85,7 +102,8 @@ public class AgenteApiController : ControllerBase
         }
 
         var respuesta = await _agente.HandleMessageAsync(
-            request.SessionId, request.Mensaje, request.NombreContacto, ct, request.Canal);
+            request.SessionId, request.Mensaje ?? string.Empty, request.NombreContacto, ct, request.Canal,
+            request.AdjuntoUrl, request.TipoAdjunto);
 
         return Ok(new { ok = true, session_id = request.SessionId, respuesta });
     }

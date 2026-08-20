@@ -85,6 +85,19 @@ public class GenerarCotizacionTool : IAgentTool
         {
             return ToolResult.Fail(ex.Message);
         }
+        catch (Exception ex) when (ex.Message.StartsWith("Ninguna referencia se pudo resolver en el catalogo", StringComparison.Ordinal))
+        {
+            // Pasa cuando codigos_sap trae el nombre comercial que el modelo uso en
+            // el chat (ej. "H6C Pro 8MP") en vez del CodigoSap real devuelto por
+            // buscar_productos - un error de datos, no del sistema. Es recuperable
+            // en el mismo turno si el modelo corrige el valor, asi que se le dice
+            // eso en vez de mandarlo directo al mensaje de fallo definitivo.
+            return ToolResult.Fail(
+                "codigos_sap no coincidio con ningun producto real: revisa que estes mandando el " +
+                "valor EXACTO del campo CodigoSap que devolvio buscar_productos/verificar_stock para " +
+                "esta referencia (un codigo, no el nombre comercial que usaste en el chat) y vuelve a " +
+                "llamar generar_cotizacion con ese valor corregido.");
+        }
         catch (Exception ex)
         {
             // Generar el PDF o subirlo puede fallar por configuracion o por un
@@ -92,10 +105,15 @@ public class GenerarCotizacionTool : IAgentTool
             // controlador y la peticion moria en 500: el cliente pedia su
             // cotizacion y no recibia ni una palabra. Es preferible que el
             // agente lo sepa y responda algo util.
+            //
+            // NUNCA prometer "un asesor te la hace llegar": nadie monitorea eso, es
+            // una promesa que no se cumple. El agente debe ser honesto sobre el
+            // problema tecnico (ver regla FLUJO COTIZACION / punto 7 del prompt).
             return ToolResult.Fail(
                 "No se pudo generar el PDF de la cotizacion (" + ex.GetType().Name + "). " +
-                "Dile al cliente que un asesor se la hace llegar en unos minutos y sigue " +
-                "la conversacion con normalidad; no vuelvas a intentarlo en este turno.");
+                "Es un problema tecnico real, no de datos: dile al cliente con honestidad que " +
+                "hubo un problema generando el documento (sin prometer que 'un asesor se la manda', " +
+                "nadie recibe ese aviso) y ofrece intentarlo de nuevo o escalar a un humano si vuelve a fallar.");
         }
     }
 
