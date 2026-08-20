@@ -25,14 +25,15 @@ public class ConsultarFotoProductoTool : IAgentTool
 
     public string Description =>
         "Devuelve el enlace a la foto real de un producto, para cuando el cliente pide verlo antes de decidir. " +
-        "Usa el codigo_sap exacto que ya viste en buscar_productos/verificar_stock para ese producto, nunca " +
-        "inventes uno. Si el producto no tiene foto cargada, dilo tal cual, no ofrezcas un enlace que no existe.";
+        "Pasa el codigo_sap o el modelo/referencia, lo que hayas visto en buscar_productos/verificar_stock para " +
+        "ese producto, nunca inventes uno. Si el producto no tiene foto cargada, dilo tal cual, no ofrezcas un " +
+        "enlace que no existe.";
 
     public string ParametersJsonSchema => """
         {
           "type": "object",
           "properties": {
-            "codigo_sap": { "type": "string", "description": "Codigo SAP exacto del producto, tal como aparecio en la busqueda" }
+            "codigo_sap": { "type": "string", "description": "Codigo SAP o modelo/referencia del producto, tal como aparecio en la busqueda" }
           },
           "required": ["codigo_sap"]
         }
@@ -42,8 +43,19 @@ public class ConsultarFotoProductoTool : IAgentTool
     {
         using var doc = JsonDocument.Parse(argumentsJson);
         var codigoSap = doc.RootElement.TryGetProperty("codigo_sap", out var el) ? el.GetString() ?? "" : "";
+        var query = codigoSap.Trim();
 
-        var producto = await _productos.GetByCodigoSapAsync(codigoSap.Trim(), ct);
+        var producto = await _productos.GetByCodigoSapAsync(query, ct);
+
+        // El modelo a veces manda el modelo/referencia (ej. "CS-H6C-R100-8B4WF") en
+        // vez del codigo SAP numerico interno (303102577) - son cosas distintas y
+        // los confunde con frecuencia (mismo problema ya visto en CotizacionService/
+        // OdooVentasService). Se reintenta como busqueda de catalogo antes de rendirse.
+        if (producto is null && query.Length > 0)
+        {
+            var candidatos = await _productos.BuscarProductosAsync(query, limit: 1, ct: ct);
+            producto = candidatos.FirstOrDefault();
+        }
 
         if (producto is null || string.IsNullOrWhiteSpace(producto.ImagenUrl))
         {
@@ -55,11 +67,9 @@ public class ConsultarFotoProductoTool : IAgentTool
             });
         }
 
-        // ImagenUrl se arma por convencion (base de Cloudinary + codigo_sap, ver
-        // ProductRepository) sin verificar que la imagen exista realmente ahi -
-        // antes eso no importaba porque el modelo nunca la mostraba. Ahora que
-        // se manda como boton clicable al cliente, un 404 real seria un enlace
-        // roto entregado en vivo, asi que se confirma con un HEAD antes de ofrecerla.
+        // La imagen se subio realmente a Cloudinary (ver migracion 008), pero se
+        // confirma con un HEAD antes de ofrecerla: un 404 real seria un enlace roto
+        // entregado en vivo al cliente como boton clicable.
         if (!await ExisteImagenAsync(producto.ImagenUrl, ct))
         {
             return ToolResult.Ok(new
@@ -73,7 +83,7 @@ public class ConsultarFotoProductoTool : IAgentTool
         return ToolResult.Ok(new
         {
             encontrado = true,
-            codigo_sap = codigoSap,
+            codigo_sap = producto.CodigoSap,
             modelo = producto.Modelo,
             url_foto = producto.ImagenUrl,
         });

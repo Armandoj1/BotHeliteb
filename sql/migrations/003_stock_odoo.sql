@@ -131,7 +131,12 @@ SELECT p.codigo_sap,
            WHEN COALESCE(cr.uds_central, 0) > 0 THEN 'EN_BODEGA_CENTRAL'
            WHEN cr.codigo_sap IS NOT NULL       THEN 'AGOTADO'
            ELSE 'BAJO_PEDIDO'
-       END AS disponibilidad
+       END AS disponibilidad,
+       -- Agregada por 008_imagen_producto.sql. Va aqui tambien porque esta vista
+       -- se re-crea en CADA carga del ETL (ver escribir() en cargar_catalogo.py),
+       -- asi que si esta columna solo vive en 008 el refresco horario de stock
+       -- la vuelve a borrar en la primera corrida despues del deploy.
+       p.imagen_url
 FROM productos p
 JOIN marcas       m  ON m.id_marca     = p.id_marca
 LEFT JOIN categorias c ON c.id_categoria = p.id_categoria
